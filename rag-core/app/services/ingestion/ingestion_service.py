@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from app.services.document.pdf_parser_service import pdf_parser_service
@@ -7,13 +6,6 @@ from app.services.embeddings.embeddings_service import embeddings_service
 from app.services.vector_db.vector_db_service import vector_db_service
 
 logger = logging.getLogger(__name__)
-
-# Bounds how many embedding requests are in flight at once across the
-# whole pipeline. This protects providers with tight rate limits (e.g.
-# a new AWS account's Bedrock quota) without serializing everything.
-# Ollama has no such constraint locally, so this is a no-op in practice
-# for the local dev mode besides capping concurrency to 2.
-EMBEDDING_CONCURRENCY = 2
 
 
 class IngestionService:
@@ -27,13 +19,6 @@ class IngestionService:
       -> Embeddings
       -> Vector database
     """
-
-    def __init__(self):
-        self._embedding_semaphore = asyncio.Semaphore(EMBEDDING_CONCURRENCY)
-
-    async def _embed_chunk(self, chunk: dict) -> list[float]:
-        async with self._embedding_semaphore:
-            return await embeddings_service.embed(chunk["text"])
 
     async def ingest_pdf(
         self,
@@ -51,16 +36,25 @@ class IngestionService:
             parsed["pages"]
         )
 
-        # 3. Generate embeddings (at most EMBEDDING_CONCURRENCY in flight)
+        # 3. Generate embeddings one chunk at a time. This used to run
+        # up to 2 embedding requests concurrently (asyncio.Semaphore),
+        # but even that was enough to exceed a low-quota AWS account's
+        # Bedrock throughput and trigger sustained ThrottlingException.
+        # Embeddings providers have no batch API we can use here (see
+        # BedrockEmbeddingsClient), so strictly sequential is the
+        # simplest correct strategy: it minimizes request rate without
+        # touching EmbeddingsService.embed()'s interface, and Ollama
+        # (no rate limits locally) is unaffected other than running
+        # one request at a time instead of two.
         logger.info(
-            "Generating embeddings for %s chunks (max %s concurrent requests).",
+            "Generating embeddings for %s chunks (sequential).",
             len(chunks),
-            EMBEDDING_CONCURRENCY,
         )
 
-        embeddings = await asyncio.gather(
-            *(self._embed_chunk(chunk) for chunk in chunks)
-        )
+        embeddings = [
+            await embeddings_service.embed(chunk["text"])
+            for chunk in chunks
+        ]
 
         document_id = metadata.get(
             "document_id",

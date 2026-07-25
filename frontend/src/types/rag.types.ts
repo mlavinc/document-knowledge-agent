@@ -12,8 +12,9 @@ export interface SearchResponseBody {
 
 export interface DocumentIngestResponseBody {
   filename: string;
-  chunks: number;
+  chunks?: number;
   status: string;
+  document_id?: string;
 }
 
 export type MessageRole = "user" | "assistant";
@@ -28,7 +29,7 @@ export interface ChatMessage {
 
 export interface IngestedDocument {
   filename: string;
-  chunks: number;
+  chunks?: number;
   status: string;
   ingestedAt: string;
 }

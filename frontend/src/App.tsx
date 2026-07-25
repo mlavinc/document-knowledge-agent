@@ -6,8 +6,13 @@ import { useChat } from "./hooks/useChat";
 import { useDocuments } from "./hooks/useDocuments";
 
 function App() {
-  const { documents, isUploading, error: uploadError, uploadDocument } =
-    useDocuments();
+  const {
+    documents,
+    isUploading,
+    error: uploadError,
+    notice: uploadNotice,
+    uploadDocument,
+  } = useDocuments();
   const {
     messages,
     isAsking,
@@ -38,6 +43,7 @@ function App() {
             documents={documents}
             isUploading={isUploading}
             error={uploadError}
+            notice={uploadNotice}
             onUpload={uploadDocument}
           />
           <HistoryPanel messages={messages} onClear={clearHistory} />

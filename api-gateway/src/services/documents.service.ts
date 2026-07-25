@@ -1,5 +1,9 @@
+import { env } from "../config/env";
 import { ragCoreClient } from "../clients/rag-core.client";
-import { DocumentIngestResponseBody } from "../types/documents.types";
+import {
+  DocumentIngestAcceptedBody,
+  DocumentIngestResponseBody,
+} from "../types/documents.types";
 
 async function ingest(
   file: Express.Multer.File
@@ -7,6 +11,24 @@ async function ingest(
   return ragCoreClient.ingestDocument(file);
 }
 
+async function ingestAsync(
+  file: Express.Multer.File
+): Promise<DocumentIngestAcceptedBody> {
+  await ragCoreClient.ingestDocumentAsync(file);
+
+  return {
+    document_id: file.originalname,
+    filename: file.originalname,
+    status: "processing",
+  };
+}
+
+function isAsyncMode(): boolean {
+  return env.INGESTION_MODE === "async";
+}
+
 export const documentsService = {
   ingest,
+  ingestAsync,
+  isAsyncMode,
 };

@@ -6,6 +6,7 @@ interface DocumentUploadProps {
   documents: IngestedDocument[];
   isUploading: boolean;
   error: string | null;
+  notice: string | null;
   onUpload: (file: File) => void;
 }
 
@@ -13,6 +14,7 @@ export function DocumentUpload({
   documents,
   isUploading,
   error,
+  notice,
   onUpload,
 }: DocumentUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -72,7 +74,13 @@ export function DocumentUpload({
         </p>
       )}
 
-      {lastDocument && !isUploading && (
+      {notice && !isUploading && (
+        <p className="mt-3 rounded-md bg-sand-100 px-3 py-2 text-sm text-ink/70">
+          {notice}
+        </p>
+      )}
+
+      {lastDocument && !isUploading && lastDocument.status !== "processing" && (
         <p className="mt-3 rounded-md bg-sage-50 px-3 py-2 text-sm text-sage-700">
           <span className="font-medium">{lastDocument.filename}</span>{" "}
           processed into {lastDocument.chunks} chunks — status:{" "}
@@ -93,7 +101,9 @@ export function DocumentUpload({
               >
                 <span className="truncate">{document.filename}</span>
                 <span className="ml-2 shrink-0 text-xs text-ink/40">
-                  {document.chunks} chunks
+                  {document.status === "processing"
+                    ? "processing…"
+                    : `${document.chunks} chunks`}
                 </span>
               </li>
             ))}

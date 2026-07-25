@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 
 import boto3
 from botocore.exceptions import ClientError
@@ -13,8 +14,23 @@ logger = logging.getLogger(__name__)
 # InvokeModel calls for embeddings can be throttled even without real
 # concurrency. Retry a handful of times with exponential backoff before
 # giving up; any other error is re-raised immediately (not swallowed).
-MAX_THROTTLE_RETRIES = 5
+# Ingestion now runs as a fire-and-forget async Lambda invocation (see
+# api-gateway's ingestDocumentAsync), decoupled from API Gateway's ~29s
+# hard timeout, so there is much more headroom (up to this Lambda's own
+# 300s timeout) to wait out a persistently tight quota. Backoff is capped
+# per attempt so retries stay predictable even with more attempts.
+MAX_THROTTLE_RETRIES = 7
 BASE_BACKOFF_SECONDS = 1.0
+MAX_BACKOFF_SECONDS = 20.0
+
+# Titan Embeddings v2 only accepts one `inputText` per InvokeModel call
+# (no batch parameter), so there is no way to reduce the number of
+# Bedrock requests for a given set of chunks. Instead, pace requests
+# proactively: even with no concurrency, back-to-back calls can still
+# outrun a tight account quota. Enforcing a minimum interval between
+# calls smooths out bursts before they get throttled, so the reactive
+# retry above becomes a safety net rather than the primary defense.
+MIN_INTERVAL_SECONDS = 1.5
 
 
 class BedrockEmbeddingsClient:
@@ -28,6 +44,8 @@ class BedrockEmbeddingsClient:
         self._client = boto3.client(
             "bedrock-runtime", region_name=settings.AWS_REGION
         )
+        self._pacing_lock = asyncio.Lock()
+        self._last_call_at: float | None = None
 
     def _invoke(self, text: str) -> list[float]:
         body = json.dumps(
@@ -46,9 +64,22 @@ class BedrockEmbeddingsClient:
         payload = json.loads(response["body"].read())
         return payload["embedding"]
 
+    async def _wait_for_pacing_slot(self) -> None:
+        """Enforces MIN_INTERVAL_SECONDS between the start of any two
+        InvokeModel calls made through this client, regardless of how
+        many coroutines are calling generate_embedding()."""
+        async with self._pacing_lock:
+            if self._last_call_at is not None:
+                elapsed = time.monotonic() - self._last_call_at
+                remaining = MIN_INTERVAL_SECONDS - elapsed
+                if remaining > 0:
+                    await asyncio.sleep(remaining)
+            self._last_call_at = time.monotonic()
+
     async def generate_embedding(self, text: str) -> list[float]:
         attempt = 0
         while True:
+            await self._wait_for_pacing_slot()
             try:
                 return await asyncio.to_thread(self._invoke, text)
             except ClientError as error:
@@ -65,7 +96,10 @@ class BedrockEmbeddingsClient:
                     )
                     raise
 
-                backoff_seconds = BASE_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                backoff_seconds = min(
+                    BASE_BACKOFF_SECONDS * (2 ** (attempt - 1)),
+                    MAX_BACKOFF_SECONDS,
+                )
                 logger.warning(
                     "Bedrock embeddings throttled (attempt %s/%s); "
                     "retrying in %.1fs.",

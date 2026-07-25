@@ -13,4 +13,15 @@ export const env = {
   RAG_CORE_AUTH_MODE: (process.env.RAG_CORE_AUTH_MODE || "none") as
     | "none"
     | "iam",
+  // "sync" en desarrollo local: la petición espera la respuesta completa
+  // de rag-core (Ollama es rápido y no hay límite de 30s de API Gateway).
+  // "async" en producción: rag-core se invoca de forma nativa y asíncrona
+  // (Lambda InvocationType=Event) para desacoplar la ingestión —que puede
+  // tardar varios minutos por el pacing/retries de Bedrock— del timeout
+  // fijo de ~29s de API Gateway HTTP API. El Gateway responde 202 de
+  // inmediato y rag-core sigue procesando en su propia invocación Lambda.
+  INGESTION_MODE: (process.env.INGESTION_MODE || "sync") as "sync" | "async",
+  // Nombre (no ARN) de la función Lambda de rag-core, requerido para
+  // invocarla directamente vía el SDK de Lambda en modo "async".
+  RAG_CORE_FUNCTION_NAME: process.env.RAG_CORE_FUNCTION_NAME || "",
 };

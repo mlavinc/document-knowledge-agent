@@ -11,6 +11,18 @@ export async function ingestDocument(
     throw new HttpError(400, "file is required");
   }
 
+  if (documentsService.isAsyncMode()) {
+    const accepted = await documentsService
+      .ingestAsync(req.file)
+      .catch((error) => {
+        console.error("RAG Core invocation failed:", error?.message);
+        throw new HttpError(503, "RAG Core unavailable");
+      });
+
+    res.status(202).json(accepted);
+    return;
+  }
+
   const result = await documentsService.ingest(req.file).catch((error) => {
     console.error("RAG Core call failed:", error?.message);
     throw new HttpError(503, "RAG Core unavailable");
