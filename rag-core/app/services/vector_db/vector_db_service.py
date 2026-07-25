@@ -1,23 +1,23 @@
-import logging
-
-import chromadb
-
 from app.core.config import settings
-
-
-logger = logging.getLogger(__name__)
+from app.services.vector_db.chroma_client import ChromaVectorDBClient
 
 
 class VectorDBService:
-    def __init__(self):
-        self.client = chromadb.PersistentClient(
-            path=settings.CHROMA_PATH,
-        )
+    """
+    Vector storage facade. Uses ChromaDB for local development and
+    Aurora PostgreSQL Serverless v2 + pgvector (via the RDS Data API) in
+    production. The provider is selected via VECTOR_DB_PROVIDER, so
+    callers (ingestion_service, rag_service) never depend on a specific
+    backend.
+    """
 
-        self.collection = self.client.get_or_create_collection(
-            name=settings.CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-        )
+    def __init__(self):
+        if settings.VECTOR_DB_PROVIDER == "pgvector":
+            from app.services.vector_db.pgvector_client import PgVectorClient
+
+            self._client = PgVectorClient()
+        else:
+            self._client = ChromaVectorDBClient()
 
     async def add_documents(
         self,
@@ -26,90 +26,23 @@ class VectorDBService:
         embeddings: list[list[float]],
         metadatas: list[dict[str, str]],
     ) -> None:
-        self.collection.add(
-            ids=ids,
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
-        )
+        await self._client.add_documents(ids, documents, embeddings, metadatas)
 
     async def search(
         self,
         embedding: list[float],
         n_results: int = 3,
     ) -> list[dict]:
-        results = self.collection.query(
-            query_embeddings=[embedding],
-            n_results=settings.RAG_TOP_K,
-        )
-
-        documents = results["documents"][0]
-        metadatas = results["metadatas"][0]
-        distances = results["distances"][0]
-
-        logger.info(
-            "Retrieved %s candidate chunks from ChromaDB",
-            len(documents),
-        )
-
-        chunks = []
-
-        for document, metadata, distance in zip(
-            documents,
-            metadatas,
-            distances,
-        ):
-            accepted = distance <= settings.RAG_MIN_SCORE
-
-            logger.debug(
-                "Chunk distance: %.4f | Accepted: %s",
-                distance,
-                accepted,
-            )
-
-            if accepted:
-                chunks.append(
-                    {
-                        "document": document,
-                        "metadata": metadata,
-                        "score": distance,
-                    }
-                )
-
-        logger.info(
-            "Returning %s relevant chunks after filtering",
-            len(chunks),
-        )
-
-        return chunks
+        return await self._client.search(embedding, n_results)
 
     async def count(self) -> int:
-        return self.collection.count()
+        return await self._client.count()
 
     async def reset(self) -> None:
-        """
-        Deletes and recreates the vector collection.
-        Useful for development/testing.
-        """
-        try:
-            self.client.delete_collection(
-                name=settings.CHROMA_COLLECTION
-            )
-        except Exception:
-            pass
-        self.collection = self.client.get_or_create_collection(
-            name=settings.CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-        )
+        await self._client.reset()
 
     async def peek(self):
-        results = self.collection.peek()
-
-        return {
-            "ids": results["ids"],
-            "documents": results["documents"],
-            "metadatas": results["metadatas"],
-        }
+        return await self._client.peek()
 
 
 vector_db_service = VectorDBService()

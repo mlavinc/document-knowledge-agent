@@ -1,0 +1,56 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rag-core:
+    build:
+      context: ./rag-core
+      target: dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./rag-core/app:/app/app
+      - ./rag-core/chroma_db:/app/chroma_db
+      - ./rag-core/data:/app/data
+    env_file:
+      - ./rag-core/.env
+    depends_on:
+      - ollama
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api-gateway/src:/app/src
+    env_file:
+      - ./api-gateway/.env
+    depends_on:
+      - rag-core
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - api-gateway
+
+volumes:
+  ollama_data:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File
-from pathlib import Path
 from app.services.ingestion.ingestion_service import ingestion_service
+from app.services.storage.storage_service import storage_service
 
 from app.services.document.pdf_parser_service import (
     pdf_parser_service
@@ -49,22 +49,15 @@ async def ingest_document(
     file: UploadFile = File(...)
 ):
 
-    upload_dir = Path("data/uploads")
-
-    upload_dir.mkdir(
-        exist_ok=True
-    )
-
-    file_path = upload_dir / file.filename
-
     content = await file.read()
 
-    file_path.write_bytes(
-        content
+    file_path = await storage_service.save(
+        file.filename,
+        content,
     )
 
     result = await ingestion_service.ingest_pdf(
-        str(file_path),
+        file_path,
         {
             "document_id": file.filename,
             "title": file.filename,

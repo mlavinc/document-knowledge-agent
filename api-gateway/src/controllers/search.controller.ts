@@ -10,7 +10,8 @@ export async function search(
 ): Promise<void> {
   const { question } = req.body;
 
-  const result = await ragService.search(question).catch(() => {
+  const result = await ragService.search(question).catch((error) => {
+    console.error("RAG Core call failed:", error?.message);
     throw new HttpError(503, "RAG Core unavailable");
   });
 

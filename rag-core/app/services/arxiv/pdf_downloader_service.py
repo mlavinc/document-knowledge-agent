@@ -1,3 +1,4 @@
+import tempfile
 from pathlib import Path
 import httpx
 
@@ -5,10 +6,14 @@ import httpx
 class PDFDownloaderService:
     """
     Downloads paper PDFs from external sources.
+
+    Uses the system temp directory rather than a relative "data/papers"
+    path because AWS Lambda's filesystem is read-only outside of /tmp;
+    this keeps the service working unchanged both locally and in Lambda.
     """
 
     def __init__(self):
-        self.storage_path = Path("data/papers")
+        self.storage_path = Path(tempfile.gettempdir()) / "rag-agent-papers"
         self.storage_path.mkdir(
             parents=True,
             exist_ok=True

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+chroma_db/
+data/
+tests/
+test_*.py
+.env
+.env.*
+!.env.example
+README.md

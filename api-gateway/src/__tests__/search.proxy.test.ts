@@ -27,9 +27,11 @@ describe("POST /api/search proxy", () => {
       .post("/api/search")
       .send({ question: "What is PyramidTNT?" });
 
-    expect(mockPost).toHaveBeenCalledWith("/api/v1/search", {
-      question: "What is PyramidTNT?",
-    });
+    expect(mockPost).toHaveBeenCalledWith(
+      "/api/v1/search",
+      JSON.stringify({ question: "What is PyramidTNT?" }),
+      { headers: { "Content-Type": "application/json" } }
+    );
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ answer: "mock answer", sources: [] });
   });
