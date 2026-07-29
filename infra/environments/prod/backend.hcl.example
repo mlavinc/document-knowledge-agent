@@ -1,3 +1,8 @@
+# region aquí es la región del bucket S3 de state (creado por
+# infra/bootstrap), NO la región donde vive la infraestructura de la
+# aplicación. Son independientes: el backend de Terraform puede quedarse
+# en us-east-1 aunque los recursos de prod se despliegan en sa-east-1
+# (ver aws_region en infra/environments/prod/variables.tf).
 bucket       = "rag-agent-tfstate-<ACCOUNT_ID>"
 key          = "prod/terraform.tfstate"
 region       = "us-east-1"

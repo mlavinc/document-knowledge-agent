@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     RAG_MIN_SCORE: float = 0.35
 
     # AWS / Bedrock
-    AWS_REGION: str = "us-east-1"
+    AWS_REGION: str = "sa-east-1"
     BEDROCK_LLM_MODEL_ID: str = "amazon.nova-micro-v1:0"
     BEDROCK_EMBEDDING_MODEL_ID: str = "amazon.titan-embed-text-v2:0"
     BEDROCK_EMBEDDING_DIMENSIONS: int = 1024

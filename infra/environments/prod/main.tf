@@ -148,18 +148,16 @@ module "api_gateway_lambda" {
   timeout                = 30
   additional_policy_json = data.aws_iam_policy_document.api_gateway_permissions.json
 
-  # CORS_ORIGIN no se define aquí a propósito: CloudFront unifica
-  # frontend y API bajo el mismo dominio, por lo que en producción todas
-  # las peticiones del navegador son same-origin y el CORS del Express
-  # nunca entra en juego. Fijar CORS_ORIGIN al dominio de CloudFront
-  # crearía además una dependencia circular (esta Lambda <- API Gateway
-  # <- CloudFront <- esta Lambda).
   # AWS_REGION no se define aquí: es una variable reservada que Lambda
   # inyecta automáticamente en el entorno de ejecución.
   environment_variables = {
     NODE_ENV           = "production"
     RAG_CORE_URL       = module.rag_core_lambda.function_url
     RAG_CORE_AUTH_MODE = "iam"
+    # El frontend de portafolio se despliega en Vercel (origen distinto
+    # al de esta API pública), de ahí que CORS_ORIGIN sí se configure en
+    # producción -ver variable "frontend_origin".
+    CORS_ORIGIN = var.frontend_origin
     # La ingestión de documentos usa invocación asíncrona nativa de Lambda
     # (InvocationType="Event") en lugar de esperar la respuesta HTTP de
     # rag-core: la generación de embeddings de Bedrock con pacing/retries
