@@ -1,20 +1,26 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Knowledge RAG Agent"
     VERSION: str = "1.0.0"
     API_PREFIX: str = "/api/v1"
 
-    # Selección de proveedor por dominio. "local" usa Ollama/ChromaDB/
-    # filesystem; cualquier otro valor usa el proveedor AWS equivalente.
-    # Se seleccionan de forma independiente (no por un único ENVIRONMENT)
-    # para permitir combinaciones durante la migración o pruebas.
-    LLM_PROVIDER: str = "ollama"  # ollama | bedrock
+    # Selección de proveedor por dominio. Se seleccionan de forma
+    # independiente (no por un único ENVIRONMENT) para permitir
+    # combinaciones durante la migración o pruebas.
+    LLM_PROVIDER: str = "ollama"  # ollama | openai | bedrock
     EMBEDDING_PROVIDER: str = "ollama"  # ollama | bedrock
     VECTOR_DB_PROVIDER: str = "chroma"  # chroma | pgvector
     STORAGE_PROVIDER: str = "filesystem"  # filesystem | s3
 
+    # Modelo LLM unificado (ollama / openai). Bedrock sigue usando
+    # BEDROCK_LLM_MODEL_ID por compatibilidad con infra existente.
+    LLM_MODEL: str = "qwen2.5:3b"
+    OPENAI_API_KEY: str = ""
+
     OLLAMA_BASE_URL: str = "http://localhost:11434"
+    # Legacy alias; prefer LLM_MODEL. Kept so existing .env files still work.
     OLLAMA_LLM_MODEL: str = "qwen2.5:3b"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
@@ -45,5 +51,16 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
     )
+
+    def resolve_llm_model(self) -> str:
+        """Return the model id for the active LLM provider."""
+        provider = self.LLM_PROVIDER.lower()
+        if provider == "bedrock":
+            return self.BEDROCK_LLM_MODEL_ID
+        if provider == "ollama":
+            # Prefer unified LLM_MODEL; fall back to legacy OLLAMA_LLM_MODEL.
+            return self.LLM_MODEL or self.OLLAMA_LLM_MODEL
+        return self.LLM_MODEL
+
 
 settings = Settings()

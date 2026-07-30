@@ -32,15 +32,6 @@ class OllamaClient:
         response.raise_for_status()
         return response.json()["embeddings"][0]
 
-    async def generate(self, prompt: str) -> str:
-        response = await self.client.post(
-            "/api/generate",
-            json={
-                "model": settings.OLLAMA_LLM_MODEL,
-                "prompt": prompt,
-                "stream": False,
-            },
-        )
-
-        response.raise_for_status()
-        return response.json()["response"]
+    # LLM generation moved to app.services.llm.ollama_llm_client
+    # (LangChain ChatOllama). This client remains responsible for
+    # embeddings and health/model listing only.
