@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     CHROMA_COLLECTION: str = "documents"
 
     RAG_TOP_K: int = 8
-    RAG_MIN_SCORE: float = 0.35
+    RAG_MIN_SCORE: float = 0.50
 
     AWS_REGION: str = "sa-east-1"
 
