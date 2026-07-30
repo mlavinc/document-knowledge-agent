@@ -35,7 +35,9 @@ async def populate_vector_db():
 
     for idx, document in enumerate(documents, start=1):
         ids.append(f"demo_{idx}")
-        embedding = await embeddings_service.embed(document)
+        embedding = await embeddings_service.embed(
+            document, purpose="ingestion"
+        )
         embeddings.append(embedding)
         metadatas.append(
             {

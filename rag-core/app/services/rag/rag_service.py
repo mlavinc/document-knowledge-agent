@@ -10,8 +10,8 @@ class RAGService:
     """
 
     async def search(self, question: str) -> SearchResponse:
-        # Step 1: Generate embedding
-        embedding = await embeddings_service.embed(question)
+        # Step 1: Generate embedding (fail-fast retry budget for interactive search)
+        embedding = await embeddings_service.embed(question, purpose="query")
 
         # Step 2: Search relevant documents
         context = await vector_db_service.search(embedding)

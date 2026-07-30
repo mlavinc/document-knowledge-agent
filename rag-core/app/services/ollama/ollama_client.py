@@ -21,7 +21,16 @@ class OllamaClient:
             return True
         except Exception:
             return False         
-    async def generate_embedding(self, text: str) -> list[float]:
+    async def generate_embedding(
+        self,
+        text: str,
+        *,
+        purpose: str = "ingestion",
+    ) -> list[float]:
+        # `purpose` is accepted for interface parity with
+        # BedrockEmbeddingsClient (query vs ingestion retry budgets).
+        # Ollama has no rate-limit retries locally.
+        _ = purpose
         response = await self.client.post(
             "/api/embed",
             json={

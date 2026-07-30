@@ -10,7 +10,7 @@ QUESTION = "How many stages does PyramidTNT have?"
 async def main():
     print(f"Question: {QUESTION}\n")
 
-    embedding = await embeddings_service.embed(QUESTION)
+    embedding = await embeddings_service.embed(QUESTION, purpose="query")
 
     chunks = await vector_db_service.search(embedding)
 

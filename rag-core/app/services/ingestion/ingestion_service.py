@@ -52,7 +52,7 @@ class IngestionService:
         )
 
         embeddings = [
-            await embeddings_service.embed(chunk["text"])
+            await embeddings_service.embed(chunk["text"], purpose="ingestion")
             for chunk in chunks
         ]
 
