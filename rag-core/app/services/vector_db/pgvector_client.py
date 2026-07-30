@@ -1,13 +1,22 @@
 import asyncio
 import json
 import logging
+import time
 
 import boto3
+from botocore.exceptions import ClientError
 
 from app.core.config import settings
 
 
 logger = logging.getLogger(__name__)
+
+# Aurora Serverless v2 with min_capacity=0 auto-pauses. The first Data API
+# call after pause raises DatabaseResumingException until the instance is
+# ready. Retry briefly so search/ingestion recover without raising
+# min_capacity (cost). Other DB errors are re-raised immediately.
+MAX_RESUME_RETRIES = 3
+RESUME_BACKOFF_SECONDS = (2.0, 4.0, 8.0)
 
 
 def _embedding_literal(embedding: list[float]) -> str:
@@ -31,6 +40,12 @@ def _field_value(field: dict):
     return None
 
 
+def _is_database_resuming(error: ClientError) -> bool:
+    return (
+        error.response.get("Error", {}).get("Code") == "DatabaseResumingException"
+    )
+
+
 class PgVectorClient:
     """
     Vector storage backed by Aurora PostgreSQL Serverless v2 + pgvector,
@@ -47,6 +62,36 @@ class PgVectorClient:
         self._table = settings.AURORA_TABLE_NAME
         self._ensured = False
 
+    def _call_with_resume_retry(self, operation, *args, **kwargs):
+        """Runs an RDS Data API call, retrying only on Aurora resume."""
+        attempt = 0
+        while True:
+            try:
+                return operation(*args, **kwargs)
+            except ClientError as error:
+                if not _is_database_resuming(error):
+                    raise
+
+                if attempt >= MAX_RESUME_RETRIES:
+                    logger.error(
+                        "Aurora still resuming after %s retries; giving up.",
+                        MAX_RESUME_RETRIES,
+                    )
+                    raise
+
+                backoff = RESUME_BACKOFF_SECONDS[
+                    min(attempt, len(RESUME_BACKOFF_SECONDS) - 1)
+                ]
+                attempt += 1
+                logger.warning(
+                    "Aurora is resuming after auto-pause "
+                    "(attempt %s/%s); retrying in %.1fs.",
+                    attempt,
+                    MAX_RESUME_RETRIES,
+                    backoff,
+                )
+                time.sleep(backoff)
+
     def _execute(self, sql: str, parameters: list[dict] | None = None):
         kwargs = {
             "resourceArn": settings.AURORA_CLUSTER_ARN,
@@ -56,10 +101,13 @@ class PgVectorClient:
         }
         if parameters:
             kwargs["parameters"] = parameters
-        return self._client.execute_statement(**kwargs)
+        return self._call_with_resume_retry(
+            self._client.execute_statement, **kwargs
+        )
 
     def _batch_execute(self, sql: str, parameter_sets: list[list[dict]]):
-        return self._client.batch_execute_statement(
+        return self._call_with_resume_retry(
+            self._client.batch_execute_statement,
             resourceArn=settings.AURORA_CLUSTER_ARN,
             secretArn=settings.AURORA_SECRET_ARN,
             database=settings.AURORA_DATABASE_NAME,
