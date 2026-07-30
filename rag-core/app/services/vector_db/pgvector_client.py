@@ -1,26 +1,18 @@
 import asyncio
 import json
 import logging
-import time
 
 import boto3
-from botocore.exceptions import ClientError
 
 from app.core.config import settings
+from app.services.vector_db.pgvector_schema import call_with_resume_retry
 
 
 logger = logging.getLogger(__name__)
 
-# Aurora Serverless v2 with min_capacity=0 auto-pauses. The first Data API
-# call after pause raises DatabaseResumingException until the instance is
-# ready. Retry briefly so search/ingestion recover without raising
-# min_capacity (cost). Other DB errors are re-raised immediately.
-MAX_RESUME_RETRIES = 3
-RESUME_BACKOFF_SECONDS = (2.0, 4.0, 8.0)
-
 
 def _embedding_literal(embedding: list[float]) -> str:
-    """Formats an embedding as a pgvector input literal, e.g. "[0.1,0.2]"."""
+    """Formats an embedding as a pgvector input literal, e.g. '[0.1,0.2]'."""
     return "[" + ",".join(repr(float(value)) for value in embedding) + "]"
 
 
@@ -40,57 +32,19 @@ def _field_value(field: dict):
     return None
 
 
-def _is_database_resuming(error: ClientError) -> bool:
-    return (
-        error.response.get("Error", {}).get("Code") == "DatabaseResumingException"
-    )
-
-
 class PgVectorClient:
     """
     Vector storage backed by Aurora PostgreSQL Serverless v2 + pgvector,
-    accessed exclusively through the RDS Data API. This keeps Lambda out
-    of the VPC (no NAT Gateway/ENIs needed) since Data API calls are
-    plain HTTPS requests to the RDS control plane.
+    accessed exclusively through the RDS Data API.
 
-    Implements the same interface as ChromaVectorDBClient so that
-    VectorDBService can swap providers transparently.
+    Schema (extension / table / index) is NOT created on the request path.
+    Run `rag-core/scripts/bootstrap_pgvector_schema.py` (or the Terraform
+    null_resource that invokes it) once at deploy time.
     """
 
     def __init__(self):
         self._client = boto3.client("rds-data", region_name=settings.AWS_REGION)
         self._table = settings.AURORA_TABLE_NAME
-        self._ensured = False
-
-    def _call_with_resume_retry(self, operation, *args, **kwargs):
-        """Runs an RDS Data API call, retrying only on Aurora resume."""
-        attempt = 0
-        while True:
-            try:
-                return operation(*args, **kwargs)
-            except ClientError as error:
-                if not _is_database_resuming(error):
-                    raise
-
-                if attempt >= MAX_RESUME_RETRIES:
-                    logger.error(
-                        "Aurora still resuming after %s retries; giving up.",
-                        MAX_RESUME_RETRIES,
-                    )
-                    raise
-
-                backoff = RESUME_BACKOFF_SECONDS[
-                    min(attempt, len(RESUME_BACKOFF_SECONDS) - 1)
-                ]
-                attempt += 1
-                logger.warning(
-                    "Aurora is resuming after auto-pause "
-                    "(attempt %s/%s); retrying in %.1fs.",
-                    attempt,
-                    MAX_RESUME_RETRIES,
-                    backoff,
-                )
-                time.sleep(backoff)
 
     def _execute(self, sql: str, parameters: list[dict] | None = None):
         kwargs = {
@@ -101,12 +55,10 @@ class PgVectorClient:
         }
         if parameters:
             kwargs["parameters"] = parameters
-        return self._call_with_resume_retry(
-            self._client.execute_statement, **kwargs
-        )
+        return call_with_resume_retry(self._client.execute_statement, **kwargs)
 
     def _batch_execute(self, sql: str, parameter_sets: list[list[dict]]):
-        return self._call_with_resume_retry(
+        return call_with_resume_retry(
             self._client.batch_execute_statement,
             resourceArn=settings.AURORA_CLUSTER_ARN,
             secretArn=settings.AURORA_SECRET_ARN,
@@ -115,33 +67,6 @@ class PgVectorClient:
             parameterSets=parameter_sets,
         )
 
-    def _ensure_schema_sync(self) -> None:
-        if self._ensured:
-            return
-
-        self._execute("CREATE EXTENSION IF NOT EXISTS vector")
-        self._execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self._table} (
-                id TEXT PRIMARY KEY,
-                document TEXT NOT NULL,
-                embedding vector({settings.EMBEDDING_DIMENSIONS}) NOT NULL,
-                metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb
-            )
-            """
-        )
-        self._execute(
-            f"""
-            CREATE INDEX IF NOT EXISTS {self._table}_embedding_idx
-            ON {self._table}
-            USING hnsw (embedding vector_cosine_ops)
-            """
-        )
-        self._ensured = True
-
-    async def _ensure_schema(self) -> None:
-        await asyncio.to_thread(self._ensure_schema_sync)
-
     async def add_documents(
         self,
         ids: list[str],
@@ -149,8 +74,6 @@ class PgVectorClient:
         embeddings: list[list[float]],
         metadatas: list[dict[str, str]],
     ) -> None:
-        await self._ensure_schema()
-
         parameter_sets = []
         for doc_id, document, embedding, metadata in zip(
             ids, documents, embeddings, metadatas
@@ -186,8 +109,6 @@ class PgVectorClient:
         embedding: list[float],
         n_results: int = 3,
     ) -> list[dict]:
-        await self._ensure_schema()
-
         sql = f"""
             SELECT document, metadata, embedding <=> :embedding::vector AS distance
             FROM {self._table}
@@ -234,20 +155,15 @@ class PgVectorClient:
         return chunks
 
     async def count(self) -> int:
-        await self._ensure_schema()
-
         response = await asyncio.to_thread(
             self._execute, f"SELECT COUNT(*) FROM {self._table}"
         )
         return int(_field_value(response["records"][0][0]))
 
     async def reset(self) -> None:
-        await self._ensure_schema()
         await asyncio.to_thread(self._execute, f"TRUNCATE TABLE {self._table}")
 
     async def peek(self):
-        await self._ensure_schema()
-
         response = await asyncio.to_thread(
             self._execute,
             f"SELECT id, document, metadata FROM {self._table} LIMIT 10",
