@@ -15,6 +15,7 @@ export interface DocumentIngestResponseBody {
   chunks?: number;
   status: string;
   document_id?: string;
+  error?: string;
 }
 
 export type MessageRole = "user" | "assistant";

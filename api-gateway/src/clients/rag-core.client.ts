@@ -111,8 +111,28 @@ async function ingestDocumentAsync(
   );
 }
 
+async function getIngestStatus(
+  documentId: string
+): Promise<DocumentIngestResponseBody> {
+  const path = `/api/v1/documents/status/${encodeURIComponent(documentId)}`;
+
+  const signed = signRequest({
+    host: ragCoreBaseUrl.host,
+    path,
+    method: "GET",
+    headers: {},
+  });
+
+  const response = await httpClient.get<DocumentIngestResponseBody>(path, {
+    headers: signed.headers,
+  });
+
+  return response.data;
+}
+
 export const ragCoreClient = {
   search,
   ingestDocument,
   ingestDocumentAsync,
+  getIngestStatus,
 };

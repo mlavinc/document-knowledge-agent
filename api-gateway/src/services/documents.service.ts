@@ -23,6 +23,12 @@ async function ingestAsync(
   };
 }
 
+async function getStatus(
+  documentId: string
+): Promise<DocumentIngestResponseBody> {
+  return ragCoreClient.getIngestStatus(documentId);
+}
+
 function isAsyncMode(): boolean {
   return env.INGESTION_MODE === "async";
 }
@@ -30,5 +36,6 @@ function isAsyncMode(): boolean {
 export const documentsService = {
   ingest,
   ingestAsync,
+  getStatus,
   isAsyncMode,
 };

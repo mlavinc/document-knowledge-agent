@@ -30,3 +30,21 @@ export async function ingestDocument(
 
   res.json(result);
 }
+
+export async function getDocumentStatus(
+  req: Request,
+  res: Response
+): Promise<void> {
+  const rawId = req.params.documentId;
+  const documentId = Array.isArray(rawId) ? rawId[0] : rawId;
+  if (!documentId) {
+    throw new HttpError(400, "documentId is required");
+  }
+
+  const status = await documentsService.getStatus(documentId).catch((error) => {
+    console.error("RAG Core status call failed:", error?.message);
+    throw new HttpError(503, "RAG Core unavailable");
+  });
+
+  res.json(status);
+}

@@ -34,6 +34,14 @@ pip-delete-this-directory.txt
 .coverage
 htmlcov/
 
+# RAG Core local runtime artifacts (ingestion / vector DB / uploads)
+rag-core/chroma_db/**
+!rag-core/chroma_db/.gitkeep
+rag-core/data/papers/**
+!rag-core/data/papers/.gitkeep
+rag-core/data/uploads/**
+!rag-core/data/uploads/.gitkeep
+
 # Docker
 docker-compose.override.yml
 

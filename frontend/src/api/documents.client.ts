@@ -16,3 +16,12 @@ export async function ingestDocument(
 
   return response.data;
 }
+
+export async function getDocumentStatus(
+  documentId: string
+): Promise<DocumentIngestResponseBody> {
+  const response = await httpClient.get<DocumentIngestResponseBody>(
+    `/api/documents/status/${encodeURIComponent(documentId)}`
+  );
+  return response.data;
+}

@@ -6,6 +6,9 @@ locals {
   documents_bucket     = "rag-agent-documents-${local.account_id}"
   rag_core_ecr_name    = "rag-agent-rag-core"
   api_gateway_ecr_name = "rag-agent-api-gateway"
+  # OpenAI embedding width (1536). Kept out of the Lambda request path:
+  # schema is bootstrapped once via null_resource below.
+  aurora_table_name = "document_chunks_openai"
 }
 
 # ---------------------------------------------------------------------------
@@ -50,13 +53,26 @@ module "aurora" {
 # IAM: permisos mínimos de cada Lambda, encapsulados fuera del módulo
 # genérico lambda-container para mantenerlo reutilizable.
 # ---------------------------------------------------------------------------
-data "aws_iam_policy_document" "rag_core_permissions" {
-  statement {
-    sid       = "BedrockInvoke"
-    actions   = ["bedrock:InvokeModel"]
-    resources = ["*"]
+# OpenAI API key lives in SSM Parameter Store (SecureString). Terraform
+# only stores the parameter *name* on the Lambda; the secret value is set
+# out-of-band via CLI (see DEPLOY.md) and never enters tfvars / TF state
+# as a managed secret after the initial placeholder.
+resource "aws_ssm_parameter" "openai_api_key" {
+  name        = var.openai_api_key_ssm_parameter_name
+  description = "OpenAI API key for rag-core (LLM + embeddings). Set value with aws ssm put-parameter --overwrite."
+  type  = "SecureString"
+  value = "REPLACE_ME_VIA_AWS_CLI"
+
+  lifecycle {
+    ignore_changes = [value]
   }
 
+  tags = {
+    Project = "rag-agent"
+  }
+}
+
+data "aws_iam_policy_document" "rag_core_permissions" {
   statement {
     sid = "AuroraDataApi"
     actions = [
@@ -80,6 +96,12 @@ data "aws_iam_policy_document" "rag_core_permissions" {
     actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
     resources = ["${module.documents_bucket.arn}/*"]
   }
+
+  statement {
+    sid       = "ReadOpenAIApiKeyFromSsm"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.openai_api_key.arn]
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -92,38 +114,60 @@ module "rag_core_lambda" {
   image_uri           = "${module.rag_core_ecr.repository_url}:${var.image_tag}"
   create_function_url = true
   memory_size         = 512
-  # 300s (vs. los 30s por defecto del módulo): la ingestión ahora genera
-  # embeddings de Bedrock estrictamente secuenciales (sin concurrencia)
-  # con pacing mínimo entre llamadas y reintentos exponenciales ante
-  # ThrottlingException (hasta 1+2+4+8+16 = 31s de backoff por chunk en
-  # el peor caso). Para documentos con muchos chunks, ese margen debe
-  # cubrir el pipeline completo, no solo un chunk aislado; 120s se
-  # quedaba corto para documentos grandes con throttling sostenido.
-  # NOTA: la llamada pública POST /api/documents/ingest sigue acotada
-  # por el timeout de api-gateway_lambda (30s) y por el límite fijo de
-  # ~29s de integración de API Gateway HTTP API (no configurable). Este
-  # cambio evita que rag-core se corte a mitad de los reintentos cuando
-  # se invoca directamente vía su Function URL; para destrabar también
-  # el flujo público de punta a punta haría falta subir el timeout de
-  # api-gateway_lambda (fuera de alcance de este fix puntual).
+  # 300s: ingestión async (InvocationType=Event) puede embeber muchos
+  # chunks con OpenAI de forma secuencial; el timeout público de API
+  # Gateway (~29s) no aplica a esa invocación de fondo.
   timeout                = 300
   additional_policy_json = data.aws_iam_policy_document.rag_core_permissions.json
 
   environment_variables = {
-    LLM_PROVIDER       = "bedrock"
-    EMBEDDING_PROVIDER = "bedrock"
-    VECTOR_DB_PROVIDER = "pgvector"
-    STORAGE_PROVIDER   = "s3"
+    LLM_PROVIDER                   = "openai"
+    EMBEDDING_PROVIDER             = "openai"
+    VECTOR_DB_PROVIDER             = "pgvector"
+    STORAGE_PROVIDER               = "s3"
+    LLM_MODEL                      = var.openai_llm_model
+    EMBEDDING_MODEL                = var.openai_embedding_model
+    EMBEDDING_DIMENSIONS           = tostring(var.openai_embedding_dimensions)
+    # Parameter *name* only — secret value is loaded at runtime from SSM.
+    OPENAI_API_KEY_SSM_PARAMETER   = aws_ssm_parameter.openai_api_key.name
     # AWS_REGION no se define aquí: es una variable reservada que Lambda
     # inyecta automáticamente en el entorno de ejecución.
-    BEDROCK_LLM_MODEL_ID         = var.bedrock_llm_model_id
-    BEDROCK_EMBEDDING_MODEL_ID   = var.bedrock_embedding_model_id
-    BEDROCK_EMBEDDING_DIMENSIONS = tostring(var.bedrock_embedding_dimensions)
-    AURORA_CLUSTER_ARN           = module.aurora.cluster_arn
-    AURORA_SECRET_ARN            = module.aurora.secret_arn
-    AURORA_DATABASE_NAME         = module.aurora.database_name
-    AURORA_TABLE_NAME            = "document_chunks"
-    S3_DOCUMENTS_BUCKET          = module.documents_bucket.id
+    AURORA_CLUSTER_ARN             = module.aurora.cluster_arn
+    AURORA_SECRET_ARN              = module.aurora.secret_arn
+    AURORA_DATABASE_NAME           = module.aurora.database_name
+    AURORA_TABLE_NAME              = local.aurora_table_name
+    S3_DOCUMENTS_BUCKET            = module.documents_bucket.id
+  }
+}
+
+# ---------------------------------------------------------------------------
+# One-time (or on-trigger) pgvector schema bootstrap. Runs on the machine
+# executing terraform apply — no extra AWS resources / cost. Idempotent:
+# safe if the table already exists or two applies race on CREATE EXTENSION.
+# ---------------------------------------------------------------------------
+resource "null_resource" "pgvector_schema_bootstrap" {
+  depends_on = [module.aurora]
+
+  triggers = {
+    cluster_arn = module.aurora.cluster_arn
+    secret_arn  = module.aurora.secret_arn
+    database    = module.aurora.database_name
+    table_name  = local.aurora_table_name
+    dimensions  = tostring(var.openai_embedding_dimensions)
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["python"]
+    command     = abspath("${path.module}/../../../rag-core/scripts/bootstrap_pgvector_schema.py")
+
+    environment = {
+      AWS_REGION           = var.aws_region
+      AURORA_CLUSTER_ARN   = module.aurora.cluster_arn
+      AURORA_SECRET_ARN    = module.aurora.secret_arn
+      AURORA_DATABASE_NAME = module.aurora.database_name
+      AURORA_TABLE_NAME    = local.aurora_table_name
+      EMBEDDING_DIMENSIONS = tostring(var.openai_embedding_dimensions)
+    }
   }
 }
 
@@ -158,14 +202,9 @@ module "api_gateway_lambda" {
     # al de esta API pública), de ahí que CORS_ORIGIN sí se configure en
     # producción -ver variable "frontend_origin".
     CORS_ORIGIN = var.frontend_origin
-    # La ingestión de documentos usa invocación asíncrona nativa de Lambda
-    # (InvocationType="Event") en lugar de esperar la respuesta HTTP de
-    # rag-core: la generación de embeddings de Bedrock con pacing/retries
-    # puede tardar minutos, muy por encima del límite fijo de ~29s de
-    # integración de API Gateway HTTP API (no configurable). Con
-    # INGESTION_MODE=async, api-gateway dispara rag-core y responde 202 de
-    # inmediato; rag-core sigue procesando en su propia invocación Lambda
-    # (hasta su propio timeout de 300s), sin infraestructura adicional.
+    # Ingestión async (InvocationType=Event): responde 202 de inmediato y
+    # rag-core indexa en segundo plano (hasta su timeout de 300s), por
+    # encima del límite ~29s de API Gateway HTTP API.
     INGESTION_MODE         = "async"
     RAG_CORE_FUNCTION_NAME = module.rag_core_lambda.function_name
   }

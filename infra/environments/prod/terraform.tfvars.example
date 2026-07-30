@@ -1,0 +1,17 @@
+aws_region      = "sa-east-1"
+image_tag       = "latest"
+frontend_origin = "*"
+
+# Solo el nombre del parámetro SSM (no la API key).
+openai_api_key_ssm_parameter_name = "/rag-agent/openai-api-key"
+openai_llm_model                  = "gpt-4.1-mini"
+openai_embedding_model            = "text-embedding-3-small"
+openai_embedding_dimensions       = 1536
+
+# Después de terraform apply, escribe el secreto FUERA de Terraform:
+#   aws ssm put-parameter \
+#     --region sa-east-1 \
+#     --name "/rag-agent/openai-api-key" \
+#     --type SecureString \
+#     --value "sk-..." \
+#     --overwrite

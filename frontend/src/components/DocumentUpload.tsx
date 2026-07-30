@@ -103,7 +103,9 @@ export function DocumentUpload({
                 <span className="ml-2 shrink-0 text-xs text-ink/40">
                   {document.status === "processing"
                     ? "processing…"
-                    : `${document.chunks} chunks`}
+                    : document.status === "failed"
+                      ? "failed"
+                      : `${document.chunks ?? 0} chunks`}
                 </span>
               </li>
             ))}
