@@ -125,7 +125,7 @@ class PgVectorClient:
             CREATE TABLE IF NOT EXISTS {self._table} (
                 id TEXT PRIMARY KEY,
                 document TEXT NOT NULL,
-                embedding vector({settings.BEDROCK_EMBEDDING_DIMENSIONS}) NOT NULL,
+                embedding vector({settings.EMBEDDING_DIMENSIONS}) NOT NULL,
                 metadata JSONB NOT NULL DEFAULT '{{}}'::jsonb
             )
             """

@@ -8,22 +8,23 @@ EmbeddingPurpose = Literal["query", "ingestion"]
 
 class EmbeddingsService:
     """
-    Handles embedding generation. Uses Ollama for local development and
-    Amazon Bedrock in production. The provider is selected via
-    EMBEDDING_PROVIDER, so callers never depend on a specific provider.
+    Handles embedding generation. Provider is selected via
+    EMBEDDING_PROVIDER (ollama | openai). Callers never depend on a
+    specific vendor SDK.
 
-    `purpose` selects the retry budget on providers that rate-limit
-    (Bedrock): "query" is fail-fast for interactive search; "ingestion"
-    is tolerant for the async document pipeline.
+    `purpose` is forwarded for providers that distinguish query vs
+    ingestion retry budgets; OpenAI ignores it.
     """
 
     def __init__(self):
-        if settings.EMBEDDING_PROVIDER == "bedrock":
-            from app.services.embeddings.bedrock_embeddings_client import (
-                BedrockEmbeddingsClient,
+        provider = settings.EMBEDDING_PROVIDER.lower()
+
+        if provider == "openai":
+            from app.services.embeddings.openai_embeddings_client import (
+                OpenAIEmbeddingsClient,
             )
 
-            self._client = BedrockEmbeddingsClient()
+            self._client = OpenAIEmbeddingsClient()
         else:
             self._client = OllamaClient()
 

@@ -36,16 +36,8 @@ class IngestionService:
             parsed["pages"]
         )
 
-        # 3. Generate embeddings one chunk at a time. This used to run
-        # up to 2 embedding requests concurrently (asyncio.Semaphore),
-        # but even that was enough to exceed a low-quota AWS account's
-        # Bedrock throughput and trigger sustained ThrottlingException.
-        # Embeddings providers have no batch API we can use here (see
-        # BedrockEmbeddingsClient), so strictly sequential is the
-        # simplest correct strategy: it minimizes request rate without
-        # touching EmbeddingsService.embed()'s interface, and Ollama
-        # (no rate limits locally) is unaffected other than running
-        # one request at a time instead of two.
+        # 3. Generate embeddings one chunk at a time (sequential). Keeps
+        # provider rate limits predictable for both Ollama and OpenAI.
         logger.info(
             "Generating embeddings for %s chunks (sequential).",
             len(chunks),

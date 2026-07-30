@@ -22,14 +22,16 @@ class OpenAILLMClient:
     """
 
     def __init__(self):
-        if not settings.OPENAI_API_KEY:
+        api_key = settings.resolve_openai_api_key()
+        if not api_key:
             raise ValueError(
-                "OPENAI_API_KEY is required when LLM_PROVIDER=openai"
+                "OPENAI_API_KEY or OPENAI_API_KEY_SSM_PARAMETER is required "
+                "when LLM_PROVIDER=openai"
             )
 
         self._llm = ChatOpenAI(
             model=settings.resolve_llm_model(),
-            api_key=settings.OPENAI_API_KEY,
+            api_key=api_key,
             temperature=0,
         )
 

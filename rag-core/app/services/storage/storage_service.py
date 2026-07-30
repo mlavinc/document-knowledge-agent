@@ -4,11 +4,16 @@ from app.services.storage.filesystem_storage_client import (
 )
 
 
+def _ingest_status_key(document_id: str) -> str:
+    # Keep a stable, filesystem/S3-safe key derived from the upload name.
+    safe = document_id.replace("/", "_").replace("\\", "_")
+    return f"ingest-status/{safe}.json"
+
+
 class StorageService:
     """
-    Handles persisting uploaded PDFs. Uses the local filesystem in
-    development and S3 in production. The provider is selected via
-    STORAGE_PROVIDER.
+    Handles persisting uploaded PDFs (and ingest status markers). Uses
+    the local filesystem in development and S3 in production.
     """
 
     def __init__(self):
@@ -23,6 +28,28 @@ class StorageService:
         """Persists the file and returns a local path usable by
         pdf_parser_service (which reads PDFs from disk)."""
         return await self._client.save(filename, content)
+
+    async def write_ingest_status(
+        self,
+        document_id: str,
+        status: str,
+        *,
+        chunks: int | None = None,
+        error: str | None = None,
+    ) -> None:
+        payload: dict = {
+            "document_id": document_id,
+            "filename": document_id,
+            "status": status,
+        }
+        if chunks is not None:
+            payload["chunks"] = chunks
+        if error is not None:
+            payload["error"] = error
+        await self._client.put_json(_ingest_status_key(document_id), payload)
+
+    async def read_ingest_status(self, document_id: str) -> dict | None:
+        return await self._client.get_json(_ingest_status_key(document_id))
 
 
 storage_service = StorageService()

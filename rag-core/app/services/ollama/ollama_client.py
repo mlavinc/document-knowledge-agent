@@ -27,14 +27,13 @@ class OllamaClient:
         *,
         purpose: str = "ingestion",
     ) -> list[float]:
-        # `purpose` is accepted for interface parity with
-        # BedrockEmbeddingsClient (query vs ingestion retry budgets).
-        # Ollama has no rate-limit retries locally.
+        # `purpose` is accepted for interface parity with other
+        # embedding clients (query vs ingestion). Ollama ignores it.
         _ = purpose
         response = await self.client.post(
             "/api/embed",
             json={
-                "model": settings.OLLAMA_EMBEDDING_MODEL,
+                "model": settings.resolve_embedding_model(),
                 "input": text,
             },
         )
