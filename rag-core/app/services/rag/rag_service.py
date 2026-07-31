@@ -1,6 +1,8 @@
+from app.core.collection import COLLECTION_PORTFOLIO, get_collection
 from app.schemas.search import SearchResponse, Source
 from app.services.embeddings.embeddings_service import embeddings_service
 from app.services.llm.llm_service import llm_service
+from app.services.rag.answer_style import strip_em_dashes
 from app.services.rag.query_expansion import expand_query_for_embedding
 from app.services.vector_db.vector_db_service import vector_db_service
 
@@ -27,6 +29,10 @@ class RAGService:
 
         # Step 3: Generate final answer (original question + prompt rules)
         answer = await llm_service.generate(question, context)
+
+        # Portfolio-only: strip AI-looking em/en dashes if the model still emits them.
+        if get_collection() == COLLECTION_PORTFOLIO:
+            answer = strip_em_dashes(answer)
 
         # Step 4: Build sources (one per document)
         sources = []
