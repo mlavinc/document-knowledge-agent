@@ -11,7 +11,7 @@ function App() {
           Ask me anything
         </h1>
         <p className="mt-4 max-w-md animate-fade-up-delay text-sm leading-relaxed text-ash-400 sm:text-base">
-          Hi — I&apos;m Martín&apos;s portfolio assistant. Ask me anything about
+          Hi! I&apos;m Martín&apos;s portfolio assistant. Ask me anything about
           my experience, projects, and technical skills.
         </p>
       </header>
