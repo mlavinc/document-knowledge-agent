@@ -204,10 +204,34 @@ def ingest_via_lambda(pdf_path: Path, display_name: str) -> dict:
 
 
 def collect_pdf_jobs() -> list[tuple[Path, str]]:
-    jobs: list[tuple[Path, str]] = []
-    seen: set[str] = set()
+    """
+    Prefer RAG-optimized numbered docs (01_*.md → 01_*.pdf).
 
-    for src in sorted(list(DOCS_DIR.glob("*.txt")) + list(DOCS_DIR.glob("*.md"))):
+    When any 0N_*.md/pdf files exist, only those are ingested. Legacy CVs /
+    READMEs remain in the folder for reference but are not re-ingested into
+    the portfolio table (keeps retrieval focused and maintainable).
+
+    Override with PORTFOLIO_INGEST_ALL=1 to ingest every PDF in the folder.
+    """
+    ingest_all = os.environ.get("PORTFOLIO_INGEST_ALL", "").strip() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+    sources = sorted(list(DOCS_DIR.glob("*.txt")) + list(DOCS_DIR.glob("*.md")))
+    numbered_sources = [
+        src
+        for src in sources
+        if src.name[:2].isdigit() and src.name[2:3] == "_"
+    ]
+    convert_sources = (
+        sources
+        if ingest_all
+        else (numbered_sources or [s for s in sources if s.name.lower() != "readme.md"])
+    )
+
+    for src in convert_sources:
         if src.name.lower() == "readme.md":
             continue
         pdf = src.with_suffix(".pdf")
@@ -215,7 +239,15 @@ def collect_pdf_jobs() -> list[tuple[Path, str]]:
             print(f"Converting {src.name} -> {pdf.name}")
             text_to_pdf(src, pdf)
 
-    for pdf in sorted(DOCS_DIR.glob("*.pdf")):
+    jobs: list[tuple[Path, str]] = []
+    seen: set[str] = set()
+    pdfs = sorted(DOCS_DIR.glob("*.pdf"))
+    numbered_pdfs = [
+        pdf for pdf in pdfs if pdf.name[:2].isdigit() and pdf.name[2:3] == "_"
+    ]
+    selected = pdfs if ingest_all else (numbered_pdfs or pdfs)
+
+    for pdf in selected:
         key = pdf.name.lower()
         if key in seen:
             continue

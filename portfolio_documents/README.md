@@ -1,28 +1,38 @@
 # Portfolio knowledge base
 
 Documents in this folder power the **Ask me anything** portfolio frontend
-(`frontend-portfolio/`). They are ingested once at deploy time via
+(`frontend-portfolio/`). They are ingested via
 `scripts/ingest_portfolio_documents.py` — there is no upload UI.
 
-They are stored in an **isolated** vector table/collection
-(`document_chunks_portfolio` / `portfolio_documents`), selected with the
-`X-RAG-Collection: portfolio` header. Demo papers (PyramidTNT, uploads,
-etc.) live in a separate table and are never retrieved by this chat.
+They are stored in an **isolated** vector table
+(`document_chunks_portfolio`), selected with the
+`X-RAG-Collection: portfolio` header. Demo papers live in a separate table.
 
-## What to put here
+## RAG-optimized corpus (default ingest)
 
-| Kind | Examples | Notes |
-| --- | --- | --- |
-| CV / resume | `*.pdf` | Preferred. Ingested as-is. |
-| About / bio | `.txt`, `.md` | Converted to PDF automatically by the ingest script. |
-| Project write-ups | `README *.md` | Project case studies the chat should know. |
+Edit the markdown sources; the ingest script converts them to PDF.
 
-## Current corpus
+| File | Purpose |
+| --- | --- |
+| `01_Profile.md` | Identity, education, goals, skills, short Q&A |
+| `02_Experience_Nestle.md` | Nestlé / Nestle internship facts + tech |
+| `03_Document_Knowledge_Agent.md` | RAG / Document Knowledge Agent project |
+| `04_Cloud_Operations_Lab.md` | Cloud Operations Lab project |
+| `05_ECG_AI_Serverless.md` | ECG AI Serverless project |
+| `06_Skill_Tracker.md` | Skill Tracker project |
 
-- `CV Martin Lavin Jul2026.pdf`
-- `CV Martin Lavin July 2026.pdf`
-- `About Me.txt` (+ generated `About Me.pdf`)
-- Project READMEs: Portafolio, DAG, Cloud, ECG, skill tracker (+ generated PDFs)
+Default ingest only uploads these numbered `0N_*.pdf` files so retrieval stays
+focused. Set `PORTFOLIO_INGEST_ALL=1` to also ingest legacy CVs / READMEs.
 
-The API Gateway ingest endpoint accepts **PDF only**. Non-PDF sources are
-converted on ingest; keep the originals for editing.
+## Legacy / source materials (not ingested by default)
+
+CV PDFs, About Me, and project README exports remain here for human editing
+and as source material for the optimized docs above.
+
+## Regression checks
+
+```bash
+set AWS_REGION=sa-east-1
+set API_GATEWAY_URL=https://6cwjcmekm6.execute-api.sa-east-1.amazonaws.com
+python scripts/regression_portfolio_search.py
+```

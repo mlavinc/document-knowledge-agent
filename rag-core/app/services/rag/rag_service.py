@@ -1,7 +1,8 @@
 from app.schemas.search import SearchResponse, Source
 from app.services.embeddings.embeddings_service import embeddings_service
-from app.services.vector_db.vector_db_service import vector_db_service
 from app.services.llm.llm_service import llm_service
+from app.services.rag.query_expansion import expand_query_for_embedding
+from app.services.vector_db.vector_db_service import vector_db_service
 
 
 class RAGService:
@@ -10,8 +11,9 @@ class RAGService:
     """
 
     async def search(self, question: str) -> SearchResponse:
-        # Step 1: Generate embedding (fail-fast retry budget for interactive search)
-        embedding = await embeddings_service.embed(question, purpose="query")
+        # Step 1: Embed (portfolio may expand deictic "you/your" for retrieval only)
+        embed_text = expand_query_for_embedding(question)
+        embedding = await embeddings_service.embed(embed_text, purpose="query")
 
         # Step 2: Search relevant documents
         context = await vector_db_service.search(embedding)
@@ -23,7 +25,7 @@ class RAGService:
                 sources=[],
             )
 
-        # Step 3: Generate final answer
+        # Step 3: Generate final answer (original question + prompt rules)
         answer = await llm_service.generate(question, context)
 
         # Step 4: Build sources (one per document)
