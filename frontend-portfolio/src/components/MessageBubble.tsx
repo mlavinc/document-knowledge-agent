@@ -1,4 +1,4 @@
-import { ChatMessage } from "@rag-agent/ui-shared";
+import { ChatMessage } from "../types/chat.types";
 
 interface MessageBubbleProps {
   message: ChatMessage;

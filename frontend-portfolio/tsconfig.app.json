@@ -14,12 +14,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@rag-agent/ui-shared": ["../packages/rag-ui-shared/src"],
-      "@rag-agent/ui-shared/*": ["../packages/rag-ui-shared/src/*"]
-    }
+    "noFallthroughCasesInSwitch": true
   },
   "include": ["src"]
 }

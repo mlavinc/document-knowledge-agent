@@ -1,6 +1,6 @@
-import { ChatMessage } from "@rag-agent/ui-shared";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import { ChatMessage } from "../types/chat.types";
 import { MessageBubble } from "./MessageBubble";
 
 const SUGGESTIONS = [

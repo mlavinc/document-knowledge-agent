@@ -7,7 +7,7 @@ Chat-only **Ask me anything** UI for Martín Lavín’s professional portfolio.
 - Sends `X-RAG-Collection: portfolio` so retrieval uses an **isolated**
   vector table (`document_chunks_portfolio`), never the demo corpus
 - Never calls `/api/documents/*`
-- Shared search/chat logic: `packages/rag-ui-shared` (demo frontend untouched)
+- Self-contained app (no monorepo package dependency) — safe for Vercel Root Directory `frontend-portfolio`
 
 ## Local development
 
