@@ -36,9 +36,11 @@ class Settings(BaseSettings):
 
     CHROMA_PATH: str = "./chroma_db"
     CHROMA_COLLECTION: str = "documents"
+    # Isolated Chroma collection for frontend-portfolio (local/dev).
+    CHROMA_PORTFOLIO_COLLECTION: str = "portfolio_documents"
 
     RAG_TOP_K: int = 8
-    RAG_MIN_SCORE: float = 0.50
+    RAG_MIN_SCORE: float = 0.55
 
     AWS_REGION: str = "sa-east-1"
 
@@ -47,6 +49,8 @@ class Settings(BaseSettings):
     AURORA_SECRET_ARN: str = ""
     AURORA_DATABASE_NAME: str = "ragagent"
     AURORA_TABLE_NAME: str = "document_chunks"
+    # Isolated pgvector table for frontend-portfolio corpus.
+    AURORA_PORTFOLIO_TABLE_NAME: str = "document_chunks_portfolio"
 
     # S3 (original PDFs + ingest status markers in production)
     S3_DOCUMENTS_BUCKET: str = ""

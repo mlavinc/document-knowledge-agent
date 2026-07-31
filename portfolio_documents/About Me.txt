@@ -1,0 +1,96 @@
+# About Me
+
+Hi! I'm **Martín Lavín Carvajal**, a final-year Computer Engineering student at **Universidad Mayor** in Santiago, Chile, passionate about **Cloud Engineering, Backend Development, Platform Engineering, and Artificial Intelligence**.
+
+What excites me most isn't simply writing software—it's understanding everything that happens beneath the surface. I'm fascinated by how systems are designed, how infrastructure scales, how distributed services communicate, how deployments become automated, and how production environments remain reliable when no one is watching.
+
+I enjoy building complete solutions rather than isolated applications. To me, software engineering is the combination of architecture, infrastructure, automation, operations, and continuous improvement. That's why most of my projects extend far beyond writing application code—they include Infrastructure as Code, CI/CD pipelines, monitoring, serverless architectures, cloud services, and production-oriented practices.
+
+Throughout my journey I've intentionally focused on understanding *why* technologies are built the way they are. I enjoy studying architectural trade-offs, cloud design patterns, operational excellence, scalability, observability, security, and cost optimization just as much as implementing the solution itself. That curiosity is what naturally led me toward Cloud Engineering and Platform Engineering, and ultimately toward my long-term goal of becoming a **Solutions Architect**.
+
+## Professional Journey
+
+My professional path combines a strong academic foundation with practical industry experience.
+
+As a **Teaching Assistant** during university, I learned to explain complex technical concepts in a simple and structured way—something that today influences how I document projects, communicate architectural decisions, and collaborate with teammates.
+
+I also worked as a **SIMCE examiner**, an experience that strengthened my attention to detail, responsibility, and ability to follow standardized processes while working under strict quality requirements.
+
+During my internship at **Nestlé Digital & New Tech**, I developed automation solutions using **Microsoft Power Platform, Python, SQL, SharePoint, and Azure services**. Working alongside business stakeholders showed me how technology can eliminate repetitive work and create measurable value for real users. More importantly, it reinforced something I genuinely enjoy: understanding people's problems and translating them into scalable technical solutions.
+
+## Continuous Learning
+
+One of the things that defines me most is curiosity.
+
+I'm constantly exploring new technologies—not because they're fashionable, but because I genuinely enjoy understanding how they work internally.
+
+Currently, I'm specializing in cloud technologies through the AWS certification path, beginning with **AWS Certified AI Practitioner** and planning to continue with **Developer Associate**, **SysOps Administrator Associate**, and **Solutions Architect Associate**.
+
+Alongside AWS, I've complemented my education through certifications including:
+
+* Cisco Networking Academy (Networking Fundamentals)
+* Cisco Networking Academy (Cybersecurity & Ethical Hacking)
+* HackerRank Go Programming Certification
+* Google Cloud training in Feature Engineering and Machine Learning with Keras
+
+For me, certifications are only valuable when accompanied by real implementation. Every new concept I learn eventually becomes part of a personal project where I can apply it under realistic conditions.
+
+## Building Real Systems
+
+My portfolio is centered around projects that simulate real engineering environments rather than academic exercises.
+
+### ThermoSim
+
+One of the projects I'm most proud of.
+
+ThermoSim is a distributed numerical solver written in Java for the two-dimensional heat equation. I implemented the mathematical core myself using finite differences, Jacobi iteration, and parallelization with ForkJoinPool, then deployed the complete distributed architecture on AWS using ECS Fargate, Amazon SQS, S3, DynamoDB, and CloudWatch.
+
+For me, this project represents the intersection between applied mathematics, distributed systems, cloud computing, and software engineering.
+
+### Cloud Operations Lab
+
+A production-inspired AWS environment built entirely with Terraform.
+
+The project focuses on Infrastructure as Code, networking, IAM, EC2, Systems Manager, CloudWatch, GitHub Actions, and cloud operational practices. Rather than simply provisioning resources, the goal was to understand how infrastructure can be versioned, automated, secured, and maintained following modern DevOps principles.
+
+### ECG AI Serverless
+
+A complete machine learning pipeline for ECG classification using Scikit-learn, deployed as a serverless application with AWS Lambda, API Gateway, and Amazon S3.
+
+Beyond building the model itself, the project explores how machine learning solutions can be packaged and deployed as scalable cloud services.
+
+### Skill Tracker
+
+A full-stack application developed with Go, React, PostgreSQL, and Docker.
+
+The project allowed me to explore backend development, API design, relational databases, containerization, and modern frontend integration while keeping the architecture clean and maintainable.
+
+In parallel, I'm also developing a **Document RAG Agent**, combining FastAPI, vector databases, retrieval-augmented generation, and cloud-native deployment patterns to explore how modern AI systems can retrieve and reason over technical documentation.
+
+## Research
+
+Alongside software engineering, I'm currently developing my undergraduate thesis in collaboration with medical imaging researchers.
+
+My research applies **Radiomics, Fractal Analysis, and Machine Learning** to medical imaging, exploring how quantitative image features can improve clinical decision-making. Working at the intersection of artificial intelligence and healthcare has shown me how software engineering can contribute to meaningful scientific research with real-world impact.
+
+## Beyond Technology
+
+Outside the world of software, I'm someone who enjoys challenging myself in different ways.
+
+Trekking has become one of the most important parts of my life. I regularly explore mountain trails across Chile, and recently completed the **Triple Corona** route. Hiking has taught me patience, preparation, resilience, and long-term thinking—qualities that translate surprisingly well into engineering.
+
+I also train consistently in the gym with a focus on hypertrophy. What attracts me isn't only the physical aspect, but the mindset it develops: discipline, consistency, incremental progress, and trusting long-term processes instead of quick results.
+
+Another lifelong fascination of mine is **paleontology**. I've always been captivated by Earth's history, prehistoric life, and the scientific process of reconstructing entire worlds from incomplete evidence. In many ways, debugging complex systems feels surprisingly similar: gathering clues, testing hypotheses, and gradually uncovering the full picture.
+
+More broadly, I simply enjoy learning. Whether the topic is cloud infrastructure, artificial intelligence, distributed systems, astronomy, biology, or emerging technologies, I'm happiest when I'm exploring something I didn't understand yesterday.
+
+## Looking Forward
+
+I'm looking for opportunities where technology isn't just a support function, but the core of the product.
+
+I want to work alongside talented engineers, contribute to systems that operate at scale, and continue growing in Cloud Engineering, Platform Engineering, and backend infrastructure.
+
+Every project in this portfolio represents another step toward that goal.
+
+Whether I'm designing cloud infrastructure, deploying machine learning models, implementing distributed algorithms, or hiking through the Andes, I approach challenges the same way: **one step at a time, with discipline, curiosity, and a constant desire to keep improving.**

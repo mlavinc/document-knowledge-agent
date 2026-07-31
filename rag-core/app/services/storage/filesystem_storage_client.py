@@ -12,8 +12,8 @@ class FilesystemStorageClient:
         self._base_dir = Path(base_dir)
 
     async def save(self, filename: str, content: bytes) -> str:
-        self._base_dir.mkdir(parents=True, exist_ok=True)
         file_path = self._base_dir / filename
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_bytes(content)
         return str(file_path)
 

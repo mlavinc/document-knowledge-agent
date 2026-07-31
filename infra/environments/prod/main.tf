@@ -8,7 +8,8 @@ locals {
   api_gateway_ecr_name = "rag-agent-api-gateway"
   # OpenAI embedding width (1536). Kept out of the Lambda request path:
   # schema is bootstrapped once via null_resource below.
-  aurora_table_name = "document_chunks_openai"
+  aurora_table_name           = "document_chunks_openai"
+  aurora_portfolio_table_name = "document_chunks_portfolio"
 }
 
 # ---------------------------------------------------------------------------
@@ -136,6 +137,7 @@ module "rag_core_lambda" {
     AURORA_SECRET_ARN              = module.aurora.secret_arn
     AURORA_DATABASE_NAME           = module.aurora.database_name
     AURORA_TABLE_NAME              = local.aurora_table_name
+    AURORA_PORTFOLIO_TABLE_NAME    = local.aurora_portfolio_table_name
     S3_DOCUMENTS_BUCKET            = module.documents_bucket.id
   }
 }
@@ -166,6 +168,33 @@ resource "null_resource" "pgvector_schema_bootstrap" {
       AURORA_SECRET_ARN    = module.aurora.secret_arn
       AURORA_DATABASE_NAME = module.aurora.database_name
       AURORA_TABLE_NAME    = local.aurora_table_name
+      EMBEDDING_DIMENSIONS = tostring(var.openai_embedding_dimensions)
+    }
+  }
+}
+
+# Isolated pgvector table for frontend-portfolio (X-RAG-Collection=portfolio).
+resource "null_resource" "pgvector_portfolio_schema_bootstrap" {
+  depends_on = [module.aurora]
+
+  triggers = {
+    cluster_arn = module.aurora.cluster_arn
+    secret_arn  = module.aurora.secret_arn
+    database    = module.aurora.database_name
+    table_name  = local.aurora_portfolio_table_name
+    dimensions  = tostring(var.openai_embedding_dimensions)
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["python"]
+    command     = abspath("${path.module}/../../../rag-core/scripts/bootstrap_pgvector_schema.py")
+
+    environment = {
+      AWS_REGION           = var.aws_region
+      AURORA_CLUSTER_ARN   = module.aurora.cluster_arn
+      AURORA_SECRET_ARN    = module.aurora.secret_arn
+      AURORA_DATABASE_NAME = module.aurora.database_name
+      AURORA_TABLE_NAME    = local.aurora_portfolio_table_name
       EMBEDDING_DIMENSIONS = tostring(var.openai_embedding_dimensions)
     }
   }

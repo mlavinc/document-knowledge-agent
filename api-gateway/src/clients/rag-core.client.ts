@@ -6,6 +6,10 @@ import { env } from "../config/env";
 import { DocumentIngestResponseBody } from "../types/documents.types";
 import { SearchResponseBody } from "../types/search.types";
 import { signRequest } from "../utils/aws-request-signer";
+import {
+  COLLECTION_DEFAULT,
+  COLLECTION_HEADER,
+} from "../utils/collection";
 import { buildLambdaUrlEvent } from "../utils/lambda-url-event";
 
 const ragCoreBaseUrl = new URL(env.RAG_CORE_URL);
@@ -18,7 +22,10 @@ const httpClient = axios.create({
 // single client instance is reused across invocations/requests.
 const lambdaClient = new LambdaClient({ region: env.AWS_REGION });
 
-async function search(question: string): Promise<SearchResponseBody> {
+async function search(
+  question: string,
+  collection: string = COLLECTION_DEFAULT
+): Promise<SearchResponseBody> {
   const path = "/api/v1/search";
   const body = JSON.stringify({ question });
 
@@ -26,7 +33,10 @@ async function search(question: string): Promise<SearchResponseBody> {
     host: ragCoreBaseUrl.host,
     path,
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      [COLLECTION_HEADER]: collection,
+    },
     body,
   });
 
@@ -38,7 +48,8 @@ async function search(question: string): Promise<SearchResponseBody> {
 }
 
 async function ingestDocument(
-  file: Express.Multer.File
+  file: Express.Multer.File,
+  collection: string = COLLECTION_DEFAULT
 ): Promise<DocumentIngestResponseBody> {
   const path = "/api/v1/documents/ingest";
 
@@ -49,12 +60,16 @@ async function ingestDocument(
   });
 
   const body = formData.getBuffer();
+  const headers = {
+    ...formData.getHeaders(),
+    [COLLECTION_HEADER]: collection,
+  };
 
   const signed = signRequest({
     host: ragCoreBaseUrl.host,
     path,
     method: "POST",
-    headers: formData.getHeaders(),
+    headers,
     body,
   });
 
@@ -82,7 +97,8 @@ async function ingestDocument(
  * built to look exactly like a real Function URL invocation event.
  */
 async function ingestDocumentAsync(
-  file: Express.Multer.File
+  file: Express.Multer.File,
+  collection: string = COLLECTION_DEFAULT
 ): Promise<void> {
   const path = "/api/v1/documents/ingest";
 
@@ -93,7 +109,10 @@ async function ingestDocumentAsync(
   });
 
   const body = formData.getBuffer();
-  const headers = formData.getHeaders();
+  const headers = {
+    ...formData.getHeaders(),
+    [COLLECTION_HEADER]: collection,
+  };
 
   const event = buildLambdaUrlEvent({
     method: "POST",
@@ -112,7 +131,8 @@ async function ingestDocumentAsync(
 }
 
 async function getIngestStatus(
-  documentId: string
+  documentId: string,
+  collection: string = COLLECTION_DEFAULT
 ): Promise<DocumentIngestResponseBody> {
   const path = `/api/v1/documents/status/${encodeURIComponent(documentId)}`;
 
@@ -120,7 +140,7 @@ async function getIngestStatus(
     host: ragCoreBaseUrl.host,
     path,
     method: "GET",
-    headers: {},
+    headers: { [COLLECTION_HEADER]: collection },
   });
 
   const response = await httpClient.get<DocumentIngestResponseBody>(path, {

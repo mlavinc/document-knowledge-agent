@@ -1,13 +1,31 @@
+from app.core.collection import COLLECTION_DEFAULT, get_collection
 from app.core.config import settings
 from app.services.storage.filesystem_storage_client import (
     FilesystemStorageClient,
 )
 
 
+def _safe_name(document_id: str) -> str:
+    return document_id.replace("/", "_").replace("\\", "_")
+
+
 def _ingest_status_key(document_id: str) -> str:
     # Keep a stable, filesystem/S3-safe key derived from the upload name.
-    safe = document_id.replace("/", "_").replace("\\", "_")
-    return f"ingest-status/{safe}.json"
+    # Portfolio statuses live under a dedicated prefix so they never clash
+    # with the demo knowledge base.
+    safe = _safe_name(document_id)
+    collection = get_collection()
+    if collection == COLLECTION_DEFAULT:
+        return f"ingest-status/{safe}.json"
+    return f"ingest-status/{collection}/{safe}.json"
+
+
+def _object_key(filename: str) -> str:
+    safe = _safe_name(filename)
+    collection = get_collection()
+    if collection == COLLECTION_DEFAULT:
+        return safe
+    return f"{collection}/{safe}"
 
 
 class StorageService:
@@ -27,7 +45,7 @@ class StorageService:
     async def save(self, filename: str, content: bytes) -> str:
         """Persists the file and returns a local path usable by
         pdf_parser_service (which reads PDFs from disk)."""
-        return await self._client.save(filename, content)
+        return await self._client.save(_object_key(filename), content)
 
     async def write_ingest_status(
         self,

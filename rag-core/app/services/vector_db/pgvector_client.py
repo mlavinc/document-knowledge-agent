@@ -4,6 +4,7 @@ import logging
 
 import boto3
 
+from app.core.collection import resolve_aurora_table
 from app.core.config import settings
 from app.services.vector_db.pgvector_schema import call_with_resume_retry
 
@@ -37,14 +38,16 @@ class PgVectorClient:
     Vector storage backed by Aurora PostgreSQL Serverless v2 + pgvector,
     accessed exclusively through the RDS Data API.
 
-    Schema (extension / table / index) is NOT created on the request path.
-    Run `rag-core/scripts/bootstrap_pgvector_schema.py` (or the Terraform
-    null_resource that invokes it) once at deploy time.
+    Table is resolved per request from X-RAG-Collection (default vs portfolio).
+    Schema is NOT created on the request path — bootstrap at deploy time.
     """
 
     def __init__(self):
         self._client = boto3.client("rds-data", region_name=settings.AWS_REGION)
-        self._table = settings.AURORA_TABLE_NAME
+
+    @property
+    def _table(self) -> str:
+        return resolve_aurora_table()
 
     def _execute(self, sql: str, parameters: list[dict] | None = None):
         kwargs = {

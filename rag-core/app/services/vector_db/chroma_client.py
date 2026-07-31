@@ -2,6 +2,7 @@ import logging
 
 import chromadb
 
+from app.core.collection import resolve_chroma_collection
 from app.core.config import settings
 
 
@@ -12,6 +13,7 @@ class ChromaVectorDBClient:
     """
     Vector storage backed by an embedded ChromaDB instance
     (chromadb.PersistentClient). Used in local development.
+    Collection name is resolved per request (default vs portfolio).
     """
 
     def __init__(self):
@@ -19,8 +21,9 @@ class ChromaVectorDBClient:
             path=settings.CHROMA_PATH,
         )
 
-        self.collection = self.client.get_or_create_collection(
-            name=settings.CHROMA_COLLECTION,
+    def _active_collection(self):
+        return self.client.get_or_create_collection(
+            name=resolve_chroma_collection(),
             metadata={"hnsw:space": "cosine"},
         )
 
@@ -31,7 +34,7 @@ class ChromaVectorDBClient:
         embeddings: list[list[float]],
         metadatas: list[dict[str, str]],
     ) -> None:
-        self.collection.add(
+        self._active_collection().add(
             ids=ids,
             documents=documents,
             embeddings=embeddings,
@@ -43,7 +46,7 @@ class ChromaVectorDBClient:
         embedding: list[float],
         n_results: int = 3,
     ) -> list[dict]:
-        results = self.collection.query(
+        results = self._active_collection().query(
             query_embeddings=[embedding],
             n_results=settings.RAG_TOP_K,
         )
@@ -89,26 +92,25 @@ class ChromaVectorDBClient:
         return chunks
 
     async def count(self) -> int:
-        return self.collection.count()
+        return self._active_collection().count()
 
     async def reset(self) -> None:
         """
-        Deletes and recreates the vector collection.
+        Deletes and recreates the active vector collection.
         Useful for development/testing.
         """
+        name = resolve_chroma_collection()
         try:
-            self.client.delete_collection(
-                name=settings.CHROMA_COLLECTION
-            )
+            self.client.delete_collection(name=name)
         except Exception:
             pass
-        self.collection = self.client.get_or_create_collection(
-            name=settings.CHROMA_COLLECTION,
+        self.client.get_or_create_collection(
+            name=name,
             metadata={"hnsw:space": "cosine"},
         )
 
     async def peek(self):
-        results = self.collection.peek()
+        results = self._active_collection().peek()
 
         return {
             "ids": results["ids"],

@@ -4,17 +4,20 @@ import {
   DocumentIngestAcceptedBody,
   DocumentIngestResponseBody,
 } from "../types/documents.types";
+import { COLLECTION_DEFAULT } from "../utils/collection";
 
 async function ingest(
-  file: Express.Multer.File
+  file: Express.Multer.File,
+  collection: string = COLLECTION_DEFAULT
 ): Promise<DocumentIngestResponseBody> {
-  return ragCoreClient.ingestDocument(file);
+  return ragCoreClient.ingestDocument(file, collection);
 }
 
 async function ingestAsync(
-  file: Express.Multer.File
+  file: Express.Multer.File,
+  collection: string = COLLECTION_DEFAULT
 ): Promise<DocumentIngestAcceptedBody> {
-  await ragCoreClient.ingestDocumentAsync(file);
+  await ragCoreClient.ingestDocumentAsync(file, collection);
 
   return {
     document_id: file.originalname,
@@ -24,9 +27,10 @@ async function ingestAsync(
 }
 
 async function getStatus(
-  documentId: string
+  documentId: string,
+  collection: string = COLLECTION_DEFAULT
 ): Promise<DocumentIngestResponseBody> {
-  return ragCoreClient.getIngestStatus(documentId);
+  return ragCoreClient.getIngestStatus(documentId, collection);
 }
 
 function isAsyncMode(): boolean {

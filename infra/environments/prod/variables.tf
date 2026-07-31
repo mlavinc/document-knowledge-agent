@@ -38,7 +38,7 @@ variable "frontend_origin" {
   # El frontend de portafolio corre en Vercel (dominio distinto al de la
   # API pública), por lo que el navegador hace peticiones cross-origin y
   # el CORS de Express sí entra en juego aquí.
-  description = "Origen permitido por CORS en api-gateway (dominio del frontend en Vercel, o \"*\")."
+  description = "Origen(es) CORS en api-gateway: un dominio Vercel, lista separada por comas (demo + portfolio), o \"*\"."
   type        = string
   default     = "*"
 }

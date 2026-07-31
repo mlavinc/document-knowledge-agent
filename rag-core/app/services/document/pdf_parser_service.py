@@ -15,10 +15,12 @@ class PDFParserService:
 
         for index, page in enumerate(document):
 
+            # PostgreSQL rejects NUL (0x00) in UTF-8 text columns.
+            text = page.get_text().replace("\x00", "")
             pages.append(
                 {
                     "page_number": index + 1,
-                    "text": page.get_text(),
+                    "text": text,
                 }
             )
 
