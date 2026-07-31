@@ -4,10 +4,12 @@ import { ChatMessage } from "../types/chat.types";
 import { MessageBubble } from "./MessageBubble";
 
 const SUGGESTIONS = [
-  "Tell me about your RAG project",
-  "What AWS services have you used?",
+  "Who are you?",
+  "Tell me about your experience.",
+  "What projects have you built?",
+  "What AWS technologies have you used?",
   "What did you build at Nestlé?",
-  "Which technologies do you enjoy most?",
+  "Explain your Document Knowledge Agent.",
 ];
 
 interface ChatPanelProps {
