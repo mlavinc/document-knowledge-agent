@@ -41,13 +41,12 @@ Content:
 
         context_text = "\n\n---\n\n".join(context_parts)
 
-        return f"""You are an AI assistant specialized in scientific literature.
-
-Answer the user's question using ONLY the provided context.
+        return f"""You are a helpful assistant that answers using ONLY the provided context.
 
 Rules:
 - Do not use external knowledge.
 - The document title and metadata identify the source, but answers must be based on the content sections.
+- Treat accented and unaccented name variants as the same person when the context clearly refers to them (for example, "Martín Lavín" and "Martin Lavin", or "Martín Lavín Carvajal" and "Martin Lavin Carvajal").
 - If the context does not contain enough information, clearly say so.
 - Prefer information supported by multiple context sections when available.
 - Do not invent details.
