@@ -1,109 +1,155 @@
 # Document Knowledge Agent
 
-A smart system that lets you upload documents and ask questions about their content using Retrieval-Augmented Generation (RAG). Instead of scrolling through pages looking for a specific detail, you upload the file once and simply ask.
+A Retrieval-Augmented Generation (RAG) system for PDF knowledge bases. Upload a document, ask questions in natural language, and get answers grounded in retrieved chunks — with source metadata so you can see which document backed the response.
 
-Under the hood, every document is parsed, split into meaningful fragments, and turned into searchable embeddings. When you ask a question, the system retrieves the most relevant fragments and uses an AI model to generate a grounded answer — with the original source passages attached, so you can always verify where an answer came from.
+The same backend powers a second surface: an “Ask me anything” portfolio assistant that queries an isolated corpus (CV, experience, projects) instead of user-uploaded papers.
 
-The goal is simple: turn static documents into a knowledge base you can actually have a conversation with.
+## Features
 
-<p align="center">
-  <img alt="React" src="https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB?logo=react&logoColor=white&labelColor=20232a">
-  <img alt="FastAPI" src="https://img.shields.io/badge/Backend-Python%20%2B%20FastAPI-009688?logo=fastapi&logoColor=white&labelColor=20232a">
-  <img alt="AWS" src="https://img.shields.io/badge/Cloud-AWS%20Serverless-FF9900?logo=amazonaws&logoColor=white&labelColor=20232a">
-  <img alt="Terraform" src="https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white&labelColor=20232a">
-</p>
+- PDF upload, text extraction (PyMuPDF), and fixed-size chunking with overlap
+- Semantic search over embeddings, then LLM generation with retrieved context
+- Source metadata on answers (`document_id`, title, chunk index, score)
+- Async document ingestion in production (gateway returns `202`, client polls status)
+- Isolated vector collections for the demo corpus vs the portfolio assistant
+- Local stack (Ollama + Chroma) and cloud stack (OpenAI + Aurora pgvector) behind the same service interfaces
 
----
+## Architecture
 
-## ✨ Features
-
-- 📄 **PDF upload** — add new documents to your knowledge base in a click.
-- 🧠 **Content extraction & processing** — text is automatically extracted and cleaned from each document.
-- ✂️ **Smart chunking** — documents are split into meaningful fragments for accurate retrieval.
-- 🔍 **Semantic search** — finds relevant content by meaning, not just keyword matching.
-- 💬 **AI-powered Q&A** — ask questions in plain language and get grounded, source-backed answers.
-- 📚 **Source transparency** — every answer links back to the exact passages it came from.
-- ⚡ **Asynchronous document processing** — large documents are handled in the background without blocking the user.
-- ☁️ **Cloud-ready architecture** — built to run locally or deploy to the cloud with no code changes.
-
----
-
-## 🏗️ Architecture
-
-```
-User
- ↓
-Frontend
- ↓
-API Gateway
- ↓
-Backend Services
- ↓
-Document Processing Pipeline
- ↓
-Vector Database + AI Models
+```text
+Browser (React / Vite)
+        │
+        ▼
+API Gateway (Node.js / Express / TypeScript)
+  · validates requests
+  · proxies search & ingest
+  · optional IAM SigV4 → rag-core
+  · sync or async ingest mode
+        │
+        ▼
+RAG Core (Python / FastAPI)
+  · parse → chunk → embed → store
+  · retrieve → generate
+        │
+        ├── Vector store: Chroma (local) | Aurora PostgreSQL + pgvector (prod)
+        ├── Models:       Ollama (local) | OpenAI (prod)
+        └── Storage:      filesystem (local) | S3 (prod)
 ```
 
-- **Frontend** — where users upload documents and ask questions.
-- **API Gateway** — the single entry point for all requests; validates input and routes it to the right service.
-- **Backend Services** — orchestrates the RAG pipeline and exposes the core API.
-- **Document Processing Pipeline** — extracts, chunks, and embeds document content.
-- **Vector Database + AI Models** — stores embeddings for semantic search and generates answers using foundation models.
+Public edge routes (API Gateway):
 
-Each layer has a single, well-defined responsibility, which keeps the system easy to reason about and easy to extend — for example, swapping the AI provider only touches one layer, never the rest of the pipeline.
+| Method | Path | Role |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness |
+| `POST` | `/api/search` | Question → grounded answer + sources |
+| `POST` | `/api/documents/ingest` | Upload PDF |
+| `GET` | `/api/documents/status/:documentId` | Ingest job status |
 
----
+Collection routing uses the `X-RAG-Collection` header (`default` \| `portfolio`).
 
-## 🧰 Tech Stack
+Production infra (Terraform under `infra/`): container Lambdas (ECR + Lambda Web Adapter), HTTP API, CloudFront + S3 for the SPA, S3 for PDFs, Aurora Serverless v2 with pgvector, and the OpenAI API key in SSM SecureString.
+
+## Technical Highlights
+
+- **Provider facades.** LLM, embeddings, vector DB, and storage are selected via env (`LLM_PROVIDER`, `EMBEDDING_PROVIDER`, `VECTOR_DB_PROVIDER`, `STORAGE_PROVIDER`). Application code does not hardcode Ollama vs OpenAI.
+- **Thin gateway, fat core.** Express owns validation, CORS, upload handling, and auth to rag-core. All RAG logic stays in FastAPI.
+- **Async ingest vs sync search.** Local ingest waits for completion. In production the gateway invokes rag-core with Lambda `InvocationType=Event`, returns `202`, and the UI polls status — so long PDF jobs do not hit the HTTP API timeout.
+- **IAM between services.** rag-core’s Function URL uses `AWS_IAM`; the gateway signs outbound calls with SigV4 when `RAG_CORE_AUTH_MODE=iam`.
+- **Corpus isolation.** Demo uploads and the portfolio knowledge base use separate Chroma collections / pgvector tables, selected per request.
+- **Same image, two runtimes.** Docker multi-stage builds (`dev` / `lambda`) share application code; Lambda Web Adapter exposes the normal HTTP servers without Mangum or custom handlers.
+
+## Tech Stack
 
 **Backend**
-- Python
-- FastAPI
-- Node.js + Express (API Gateway)
+Python 3.11 · FastAPI · LangChain · PyMuPDF · Node.js · Express · TypeScript · Zod
 
-**AI / RAG**
-- Embeddings
-- Vector Database
-- Foundation Models
-
-**Cloud**
-- AWS Lambda
-- API Gateway
-- CloudFront
-- S3
-- Terraform
+**AI / data**
+Ollama (local) · OpenAI (prod) · ChromaDB (local) · Aurora PostgreSQL + pgvector (prod)
 
 **Frontend**
-- React
-- TypeScript
+React 18 · TypeScript · Vite · Tailwind CSS
 
----
+**Infrastructure**
+Docker Compose (local) · Terraform · AWS Lambda · API Gateway · CloudFront · S3 · ECR · SSM · Vercel (demo / portfolio UIs)
 
-## 💡 Engineering Highlights
+## Getting Started
 
-- **Serverless-first architecture** to minimize idle cost and scale automatically with demand.
-- **Clear separation** between the lightweight API Gateway and the heavier document-processing pipeline, so each can scale and evolve independently.
-- **Asynchronous ingestion** for larger documents, so processing time never blocks the user experience.
-- **Infrastructure as Code** — the entire cloud environment is defined and reproducible through Terraform.
-- **Provider-agnostic design** — the AI/embedding/vector-store providers are fully decoupled from the application logic, so switching providers is a configuration change, not a rewrite.
+### Prerequisites
 
----
+- Docker and Docker Compose
+- ~5 GB disk for Ollama models (first pull)
 
-## 🚀 Local Development
-
-**Requirements:** Docker & Docker Compose.
+### Configure env files
 
 ```bash
-git clone <this-repository>
+git clone https://github.com/mlavinc/document-knowledge-agent.git
 cd document-knowledge-agent
-docker compose up
+
+cp rag-core/.env.example rag-core/.env
+cp api-gateway/.env.example api-gateway/.env
+cp frontend/.env.example frontend/.env
 ```
 
-Then open the app at `http://localhost:5173`. Everything — frontend, API, document processing, and AI models — runs locally, with no cloud account required.
+In `rag-core/.env`, set the Ollama URL to the Compose service name:
 
----
+```env
+OLLAMA_BASE_URL=http://ollama:11434
+```
 
-## 📌 Project Status
+(`rag-core/.env.example` defaults to `localhost`, which is correct for host-side runs but wrong inside the container.)
 
-This is an actively evolving personal portfolio project. The system supports both **local** and **cloud-based** providers for embeddings and language models, selectable through configuration — allowing it to run fully offline for development, or on a real serverless cloud deployment for production use.
+### Run
 
+```bash
+docker compose up --build
+```
+
+Pull the models used by the default config (once):
+
+```bash
+docker compose exec ollama ollama pull qwen2.5:3b
+docker compose exec ollama ollama pull nomic-embed-text
+```
+
+| Service | URL |
+| --- | --- |
+| Frontend | http://localhost:5173 |
+| API Gateway | http://localhost:3000 |
+| RAG Core | http://localhost:8000 |
+
+Upload a PDF in the UI, wait for ingest to finish, then ask a question.
+
+### Tests
+
+```bash
+cd api-gateway && npm test
+```
+
+Gateway tests use Vitest + Supertest (validation, proxy behavior, async ingest).
+
+### Production deploy
+
+See [`infra/environments/prod/DEPLOY.md`](infra/environments/prod/DEPLOY.md) for Terraform apply, SSM key setup, and Lambda image push.
+
+## Demo
+
+Live UI: [document-knowledge-agent-tau.vercel.app](https://document-knowledge-agent-tau.vercel.app/)
+
+Upload a PDF and ask questions; answers include source metadata from the retrieved chunks.
+
+## Case Study
+
+Architecture decisions, trade-offs, and product framing:
+
+[mlavinc-portfolio.vercel.app/projects/document-knowledge-agent](https://mlavinc-portfolio.vercel.app/projects/document-knowledge-agent)
+
+## Repository layout
+
+```text
+frontend/              Demo SPA (upload + chat)
+frontend-portfolio/    Portfolio “Ask me anything” SPA
+api-gateway/           Express edge API
+rag-core/              FastAPI RAG pipeline
+infra/                 Terraform (bootstrap + prod)
+portfolio_documents/   Corpus for the portfolio assistant
+scripts/               Portfolio ingest / regression helpers
+```
