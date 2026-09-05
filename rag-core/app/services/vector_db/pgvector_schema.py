@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 MAX_RESUME_RETRIES = 3
 RESUME_BACKOFF_SECONDS = (2.0, 4.0, 8.0)
+WARMUP_MAX_WAIT_SECONDS = 90.0
+WARMUP_BACKOFF_SECONDS = (2.0, 4.0, 8.0, 10.0)
 
 
 def schema_statements(table_name: str, embedding_dimensions: int) -> list[str]:
@@ -93,6 +95,52 @@ def call_with_resume_retry(operation: Callable[..., Any], *args: Any, **kwargs: 
                 backoff,
             )
             time.sleep(backoff)
+
+
+def call_with_warmup_retry(
+    operation: Callable[..., Any],
+    *args: Any,
+    max_wait_seconds: float = WARMUP_MAX_WAIT_SECONDS,
+    **kwargs: Any,
+):
+    """
+    Retry an Aurora probe for longer than normal request-path operations.
+
+    Warmup runs asynchronously, so it can wait through a deep Aurora resume
+    without consuming an API Gateway request or OpenAI tokens.
+    """
+    started_at = time.monotonic()
+    attempt = 0
+
+    while True:
+        try:
+            return operation(*args, **kwargs)
+        except ClientError as error:
+            if not is_database_resuming(error):
+                raise
+
+            elapsed = time.monotonic() - started_at
+            remaining = max_wait_seconds - elapsed
+            if remaining <= 0:
+                logger.error(
+                    "Aurora warmup timed out after %.1f seconds.",
+                    elapsed,
+                )
+                raise
+
+            backoff = WARMUP_BACKOFF_SECONDS[
+                min(attempt, len(WARMUP_BACKOFF_SECONDS) - 1)
+            ]
+            sleep_seconds = min(backoff, remaining)
+            attempt += 1
+            logger.info(
+                "Aurora warmup is waiting for resume "
+                "(attempt %s, elapsed %.1fs); retrying in %.1fs.",
+                attempt,
+                elapsed,
+                sleep_seconds,
+            )
+            time.sleep(sleep_seconds)
 
 
 def execute_ddl_idempotent(execute_sql: Callable[[str], Any], sql: str) -> None:

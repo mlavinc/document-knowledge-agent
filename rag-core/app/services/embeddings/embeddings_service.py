@@ -1,7 +1,6 @@
 from typing import Literal
 
 from app.core.config import settings
-from app.services.ollama.ollama_client import OllamaClient
 
 EmbeddingPurpose = Literal["query", "ingestion"]
 
@@ -17,6 +16,12 @@ class EmbeddingsService:
     """
 
     def __init__(self):
+        self._client = None
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+
         provider = settings.EMBEDDING_PROVIDER.lower()
 
         if provider == "openai":
@@ -26,7 +31,10 @@ class EmbeddingsService:
 
             self._client = OpenAIEmbeddingsClient()
         else:
+            from app.services.ollama.ollama_client import OllamaClient
+
             self._client = OllamaClient()
+        return self._client
 
     async def embed(
         self,
@@ -34,7 +42,9 @@ class EmbeddingsService:
         *,
         purpose: EmbeddingPurpose = "ingestion",
     ) -> list[float]:
-        return await self._client.generate_embedding(text, purpose=purpose)
+        return await self._get_client().generate_embedding(
+            text, purpose=purpose
+        )
 
 
 embeddings_service = EmbeddingsService()

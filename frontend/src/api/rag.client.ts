@@ -1,5 +1,8 @@
 import { httpClient } from "./http";
-import { SearchResponseBody } from "../types/rag.types";
+import {
+  SearchResponseBody,
+  WarmupResponseBody,
+} from "../types/rag.types";
 
 export async function askQuestion(
   question: string
@@ -8,5 +11,15 @@ export async function askQuestion(
     question,
   });
 
+  return response.data;
+}
+
+export async function startAgentWarmup(): Promise<WarmupResponseBody> {
+  const response = await httpClient.post<WarmupResponseBody>("/api/warmup");
+  return response.data;
+}
+
+export async function getAgentWarmupStatus(): Promise<WarmupResponseBody> {
+  const response = await httpClient.get<WarmupResponseBody>("/api/warmup");
   return response.data;
 }

@@ -8,6 +8,7 @@ import { requestLogger } from "./middleware/logger.middleware";
 import documentsRoutes from "./routes/documents.routes";
 import healthRoutes from "./routes/health.routes";
 import searchRoutes from "./routes/search.routes";
+import warmupRoutes from "./routes/warmup.routes";
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use(express.json());
 app.use(requestLogger);
 
 app.use(healthRoutes);
+app.use(warmupRoutes);
 app.use(searchRoutes);
 app.use(documentsRoutes);
 

@@ -16,6 +16,7 @@ function App() {
   const {
     messages,
     isAsking,
+    agentStatus,
     error: chatError,
     sendQuestion,
     clearHistory,
@@ -53,6 +54,7 @@ function App() {
           <ChatWindow
             messages={messages}
             isAsking={isAsking}
+            agentStatus={agentStatus}
             error={chatError}
             onAsk={sendQuestion}
           />

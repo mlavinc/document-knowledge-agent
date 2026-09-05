@@ -40,11 +40,17 @@ Public edge routes (API Gateway):
 | Method | Path | Role |
 | --- | --- | --- |
 | `GET` | `/health` | Liveness |
+| `POST` | `/api/warmup` | Start RAG Core/Aurora warmup asynchronously |
+| `GET` | `/api/warmup` | Check warmup readiness |
 | `POST` | `/api/search` | Question → grounded answer + sources |
 | `POST` | `/api/documents/ingest` | Upload PDF |
 | `GET` | `/api/documents/status/:documentId` | Ingest job status |
 
 Collection routing uses the `X-RAG-Collection` header (`default` \| `portfolio`).
+
+Warmup performs only an Aurora `SELECT 1`; it does not create embeddings or
+invoke the LLM. Portfolio clients send `X-RAG-Collection: portfolio` on both
+warmup requests, just as they do for search.
 
 Production infra (Terraform under `infra/`): container Lambdas (ECR + Lambda Web Adapter), HTTP API, CloudFront + S3 for the SPA, S3 for PDFs, Aurora Serverless v2 with pgvector, and the OpenAI API key in SSM SecureString.
 

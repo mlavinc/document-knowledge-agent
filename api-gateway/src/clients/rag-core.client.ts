@@ -47,6 +47,56 @@ async function search(
   return response.data;
 }
 
+async function startWarmup(
+  collection: string = COLLECTION_DEFAULT
+): Promise<void> {
+  const path = "/api/v1/warmup";
+  const headers = { [COLLECTION_HEADER]: collection };
+
+  if (!env.RAG_CORE_FUNCTION_NAME) {
+    const signed = signRequest({
+      host: ragCoreBaseUrl.host,
+      path,
+      method: "POST",
+      headers,
+    });
+    await httpClient.post(path, undefined, { headers: signed.headers });
+    return;
+  }
+
+  const event = buildLambdaUrlEvent({
+    method: "POST",
+    path,
+    headers,
+    body: Buffer.alloc(0),
+  });
+
+  await lambdaClient.send(
+    new InvokeCommand({
+      FunctionName: env.RAG_CORE_FUNCTION_NAME,
+      InvocationType: "Event",
+      Payload: Buffer.from(JSON.stringify(event)),
+    })
+  );
+}
+
+async function getWarmupStatus(
+  collection: string = COLLECTION_DEFAULT
+): Promise<{ statusCode: number; data: { status: string } }> {
+  const path = "/api/v1/warmup";
+  const signed = signRequest({
+    host: ragCoreBaseUrl.host,
+    path,
+    method: "GET",
+    headers: { [COLLECTION_HEADER]: collection },
+  });
+
+  const response = await httpClient.get<{ status: string }>(path, {
+    headers: signed.headers,
+  });
+  return { statusCode: response.status, data: response.data };
+}
+
 async function ingestDocument(
   file: Express.Multer.File,
   collection: string = COLLECTION_DEFAULT
@@ -152,6 +202,8 @@ async function getIngestStatus(
 
 export const ragCoreClient = {
   search,
+  startWarmup,
+  getWarmupStatus,
   ingestDocument,
   ingestDocumentAsync,
   getIngestStatus,

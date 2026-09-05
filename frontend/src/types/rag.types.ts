@@ -10,6 +10,12 @@ export interface SearchResponseBody {
   sources: SearchSource[];
 }
 
+export type AgentStatus = "initializing" | "ready" | "unavailable";
+
+export interface WarmupResponseBody {
+  status: "initializing" | "ready";
+}
+
 export interface DocumentIngestResponseBody {
   filename: string;
   chunks?: number;

@@ -3,10 +3,15 @@ import json
 import logging
 
 import boto3
+from botocore.exceptions import ClientError
 
 from app.core.collection import resolve_aurora_table
 from app.core.config import settings
-from app.services.vector_db.pgvector_schema import call_with_resume_retry
+from app.services.vector_db.pgvector_schema import (
+    call_with_resume_retry,
+    call_with_warmup_retry,
+    is_database_resuming,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -59,6 +64,14 @@ class PgVectorClient:
         if parameters:
             kwargs["parameters"] = parameters
         return call_with_resume_retry(self._client.execute_statement, **kwargs)
+
+    def _execute_once(self, sql: str):
+        return self._client.execute_statement(
+            resourceArn=settings.AURORA_CLUSTER_ARN,
+            secretArn=settings.AURORA_SECRET_ARN,
+            database=settings.AURORA_DATABASE_NAME,
+            sql=sql,
+        )
 
     def _batch_execute(self, sql: str, parameter_sets: list[list[dict]]):
         return call_with_resume_retry(
@@ -156,6 +169,23 @@ class PgVectorClient:
         )
 
         return chunks
+
+    async def warmup(self) -> None:
+        await asyncio.to_thread(
+            call_with_warmup_retry,
+            self._execute_once,
+            "SELECT 1",
+        )
+
+    async def is_ready(self) -> bool:
+        try:
+            await asyncio.to_thread(self._execute_once, "SELECT 1")
+            return True
+        except ClientError as error:
+            if is_database_resuming(error):
+                logger.info("Aurora is not ready yet.")
+                return False
+            raise
 
     async def count(self) -> int:
         response = await asyncio.to_thread(

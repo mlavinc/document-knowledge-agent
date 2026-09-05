@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Body
 
-from app.services.ingestion.ingestion_service import ingestion_service
-
 
 router = APIRouter()
 
@@ -14,6 +12,7 @@ async def ingest_pdf(
     file_path: str,
     metadata: dict = Body(default={}),
 ):
+    from app.services.ingestion.ingestion_service import ingestion_service
 
     result = await ingestion_service.ingest_pdf(
         file_path=file_path,

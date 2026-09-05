@@ -1,6 +1,4 @@
 from fastapi import APIRouter
-from app.services.arxiv.arxiv_service import arxiv_service
-from app.services.arxiv.pdf_downloader_service import pdf_downloader_service
 
 router = APIRouter()
 
@@ -9,6 +7,8 @@ router = APIRouter()
     summary="Search for papers on arXiv"
 )
 async def search_arxiv(query: str):
+    from app.services.arxiv.arxiv_service import arxiv_service
+
     papers = await arxiv_service.search(query)
     return papers
 
@@ -17,6 +17,8 @@ async def search_arxiv(query: str):
     summary="Download arXiv paper PDF"
 )
 async def download_pdf(paper_id: str):
+    from app.services.arxiv.pdf_downloader_service import pdf_downloader_service
+
     path = await pdf_downloader_service.download(
         paper_id
     )

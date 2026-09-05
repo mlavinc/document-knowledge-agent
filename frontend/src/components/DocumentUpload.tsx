@@ -47,7 +47,7 @@ export function DocumentUpload({
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label className="flex-1 cursor-pointer rounded-md border border-dashed border-sage-300 bg-sage-50 px-4 py-3 text-center text-sm text-sage-700 transition hover:bg-sage-100">
+        <label className="min-w-0 flex-1 cursor-pointer rounded-md border border-dashed border-sage-300 bg-sage-50 px-4 py-3 text-center text-sm text-sage-700 transition hover:bg-sage-100">
           <input
             ref={inputRef}
             type="file"
@@ -55,14 +55,19 @@ export function DocumentUpload({
             className="hidden"
             onChange={handleFileChange}
           />
-          {selectedFile ? selectedFile.name : "Choose a PDF file"}
+          <span
+            className="block truncate"
+            title={selectedFile?.name}
+          >
+            {selectedFile ? selectedFile.name : "Choose a PDF file"}
+          </span>
         </label>
 
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!selectedFile || isUploading}
-          className="rounded-md bg-sage-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sage-700 disabled:cursor-not-allowed disabled:bg-sand-200 disabled:text-ink/40"
+          className="shrink-0 rounded-md bg-sage-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sage-700 disabled:cursor-not-allowed disabled:bg-sand-200 disabled:text-ink/40"
         >
           {isUploading ? "Processing…" : "Upload"}
         </button>
@@ -81,8 +86,13 @@ export function DocumentUpload({
       )}
 
       {lastDocument && !isUploading && lastDocument.status !== "processing" && (
-        <p className="mt-3 rounded-md bg-sage-50 px-3 py-2 text-sm text-sage-700">
-          <span className="font-medium">{lastDocument.filename}</span>{" "}
+        <p className="mt-3 min-w-0 rounded-md bg-sage-50 px-3 py-2 text-sm text-sage-700">
+          <span
+            className="block truncate font-medium"
+            title={lastDocument.filename}
+          >
+            {lastDocument.filename}
+          </span>{" "}
           processed into {lastDocument.chunks} chunks — status:{" "}
           {lastDocument.status}
         </p>
@@ -97,9 +107,11 @@ export function DocumentUpload({
             {documents.map((document) => (
               <li
                 key={`${document.filename}-${document.ingestedAt}`}
-                className="flex items-center justify-between rounded-md bg-paper px-3 py-2 text-sm text-ink/70"
+                className="flex min-w-0 items-center justify-between rounded-md bg-paper px-3 py-2 text-sm text-ink/70"
               >
-                <span className="truncate">{document.filename}</span>
+                <span className="min-w-0 truncate" title={document.filename}>
+                  {document.filename}
+                </span>
                 <span className="ml-2 shrink-0 text-xs text-ink/40">
                   {document.status === "processing"
                     ? "processing…"

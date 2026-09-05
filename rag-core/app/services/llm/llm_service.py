@@ -10,6 +10,12 @@ class LLMService:
     """
 
     def __init__(self):
+        self._client = None
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+
         provider = settings.LLM_PROVIDER.lower()
 
         if provider == "openai":
@@ -20,10 +26,11 @@ class LLMService:
             from app.services.llm.ollama_llm_client import OllamaLLMClient
 
             self._client = OllamaLLMClient()
+        return self._client
 
     async def generate(self, question: str, context: list[dict]) -> str:
         prompt = prompt_builder.build(question, context)
-        return await self._client.generate(prompt)
+        return await self._get_client().generate(prompt)
 
 
 llm_service = LLMService()

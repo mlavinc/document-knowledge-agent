@@ -1,10 +1,5 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.services.chunking_service import chunking_service
-from app.services.document.pdf_parser_service import pdf_parser_service
-from app.services.ingestion.ingestion_service import ingestion_service
-from app.services.storage.storage_service import storage_service
-
 router = APIRouter()
 
 
@@ -13,6 +8,8 @@ router = APIRouter()
     summary="Extract text from PDF",
 )
 async def extract_pdf(file_path: str):
+    from app.services.document.pdf_parser_service import pdf_parser_service
+
     return pdf_parser_service.extract_text(file_path)
 
 
@@ -21,6 +18,9 @@ async def extract_pdf(file_path: str):
     summary="Extract PDF text and split into chunks",
 )
 async def get_chunks(file_path: str):
+    from app.services.chunking_service import chunking_service
+    from app.services.document.pdf_parser_service import pdf_parser_service
+
     parsed = pdf_parser_service.extract_text(file_path)
     chunks = chunking_service.split(parsed["pages"])
     return {
@@ -35,6 +35,8 @@ async def get_chunks(file_path: str):
     summary="Get async ingestion status for a document",
 )
 async def get_ingest_status(document_id: str):
+    from app.services.storage.storage_service import storage_service
+
     status = await storage_service.read_ingest_status(document_id)
     if status is None:
         # Job accepted but marker not written yet (or unknown id).
@@ -51,6 +53,9 @@ async def get_ingest_status(document_id: str):
     summary="Upload and ingest PDF document",
 )
 async def ingest_document(file: UploadFile = File(...)):
+    from app.services.ingestion.ingestion_service import ingestion_service
+    from app.services.storage.storage_service import storage_service
+
     document_id = file.filename or "upload.pdf"
     content = await file.read()
 

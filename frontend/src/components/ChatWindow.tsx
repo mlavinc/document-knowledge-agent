@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { ChatMessage } from "../types/rag.types";
+import { AgentStatus, ChatMessage } from "../types/rag.types";
 import { MessageBubble } from "./MessageBubble";
 
 const EXAMPLE_QUESTIONS = [
@@ -12,6 +12,7 @@ const EXAMPLE_QUESTIONS = [
 interface ChatWindowProps {
   messages: ChatMessage[];
   isAsking: boolean;
+  agentStatus: AgentStatus;
   error: string | null;
   onAsk: (question: string) => void;
 }
@@ -19,6 +20,7 @@ interface ChatWindowProps {
 export function ChatWindow({
   messages,
   isAsking,
+  agentStatus,
   error,
   onAsk,
 }: ChatWindowProps) {
@@ -42,7 +44,25 @@ export function ChatWindow({
   return (
     <section className="flex h-full flex-col rounded-lg border border-sand-200 bg-white shadow-sm">
       <header className="border-b border-sand-200 px-5 py-4">
-        <h2 className="font-serif text-lg text-ink">Conversation</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-lg text-ink">Conversation</h2>
+          <span className="flex items-center gap-1.5 text-xs text-ink/50">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                agentStatus === "ready"
+                  ? "bg-sage-500"
+                  : agentStatus === "initializing"
+                    ? "animate-pulse bg-sand-400"
+                    : "bg-clay-400"
+              }`}
+            />
+            {agentStatus === "ready"
+              ? "Agent ready"
+              : agentStatus === "initializing"
+                ? "Agent initializing…"
+                : "Agent unavailable"}
+          </span>
+        </div>
         <p className="mt-1 text-sm text-ink/60">
           Ask questions about the documents you have uploaded.
         </p>
@@ -74,7 +94,9 @@ export function ChatWindow({
         {isAsking && (
           <div className="flex justify-start">
             <div className="rounded-lg border border-sand-200 bg-white px-4 py-3 text-sm text-ink/40">
-              Thinking…
+              {agentStatus === "initializing"
+                ? "Agent initializing…"
+                : "Thinking…"}
             </div>
           </div>
         )}
@@ -96,7 +118,11 @@ export function ChatWindow({
           type="text"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Ask something about your document…"
+          placeholder={
+            agentStatus === "initializing"
+              ? "You can type while the agent initializes…"
+              : "Ask something about your document…"
+          }
           className="flex-1 rounded-md border border-sand-200 bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-sage-400"
         />
         <button

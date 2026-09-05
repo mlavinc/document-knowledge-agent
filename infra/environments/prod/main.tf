@@ -139,6 +139,10 @@ module "rag_core_lambda" {
     AURORA_TABLE_NAME              = local.aurora_table_name
     AURORA_PORTFOLIO_TABLE_NAME    = local.aurora_portfolio_table_name
     S3_DOCUMENTS_BUCKET            = module.documents_bucket.id
+    # RAG Core can take more than Lambda's 10s init window. Let the Web
+    # Adapter continue readiness checks in the first invocation instead
+    # of restarting the container and returning an early 502.
+    AWS_LWA_ASYNC_INIT             = "true"
   }
 }
 

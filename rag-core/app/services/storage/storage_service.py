@@ -35,17 +35,24 @@ class StorageService:
     """
 
     def __init__(self):
+        self._client = None
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+
         if settings.STORAGE_PROVIDER == "s3":
             from app.services.storage.s3_storage_client import S3StorageClient
 
             self._client = S3StorageClient()
         else:
             self._client = FilesystemStorageClient()
+        return self._client
 
     async def save(self, filename: str, content: bytes) -> str:
         """Persists the file and returns a local path usable by
         pdf_parser_service (which reads PDFs from disk)."""
-        return await self._client.save(_object_key(filename), content)
+        return await self._get_client().save(_object_key(filename), content)
 
     async def write_ingest_status(
         self,
@@ -64,10 +71,14 @@ class StorageService:
             payload["chunks"] = chunks
         if error is not None:
             payload["error"] = error
-        await self._client.put_json(_ingest_status_key(document_id), payload)
+        await self._get_client().put_json(
+            _ingest_status_key(document_id), payload
+        )
 
     async def read_ingest_status(self, document_id: str) -> dict | None:
-        return await self._client.get_json(_ingest_status_key(document_id))
+        return await self._get_client().get_json(
+            _ingest_status_key(document_id)
+        )
 
 
 storage_service = StorageService()
