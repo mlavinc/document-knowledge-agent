@@ -21,6 +21,13 @@ function App() {
     sendQuestion,
     clearHistory,
   } = useChat();
+  const activeDocument = documents[0];
+  const hasReadyDocument = activeDocument?.status === "completed";
+
+  const handleUpload = async (file: File) => {
+    clearHistory();
+    await uploadDocument(file);
+  };
 
   return (
     <div className="min-h-screen bg-paper">
@@ -45,7 +52,7 @@ function App() {
             isUploading={isUploading}
             error={uploadError}
             notice={uploadNotice}
-            onUpload={uploadDocument}
+            onUpload={handleUpload}
           />
           <HistoryPanel messages={messages} onClear={clearHistory} />
         </aside>
@@ -57,6 +64,8 @@ function App() {
             agentStatus={agentStatus}
             error={chatError}
             onAsk={sendQuestion}
+            suggestions={hasReadyDocument ? activeDocument?.suggestions ?? [] : []}
+            hasReadyDocument={hasReadyDocument}
           />
         </div>
       </main>

@@ -5,6 +5,7 @@ import {
   DocumentIngestResponseBody,
 } from "../types/documents.types";
 import { COLLECTION_DEFAULT } from "../utils/collection";
+import { stagedDocumentsService } from "./staged-documents.service";
 
 async function ingest(
   file: Express.Multer.File,
@@ -17,11 +18,24 @@ async function ingestAsync(
   file: Express.Multer.File,
   collection: string = COLLECTION_DEFAULT
 ): Promise<DocumentIngestAcceptedBody> {
-  await ragCoreClient.ingestDocumentAsync(file, collection);
+  const staged = await stagedDocumentsService.stage(file, collection);
+
+  try {
+    await ragCoreClient.ingestStagedDocumentAsync(
+      {
+        document_id: staged.documentId,
+        object_key: staged.objectKey,
+      },
+      collection
+    );
+  } catch (error) {
+    await stagedDocumentsService.remove(staged.objectKey).catch(() => undefined);
+    throw error;
+  }
 
   return {
-    document_id: file.originalname,
-    filename: file.originalname,
+    document_id: staged.documentId,
+    filename: staged.documentId,
     status: "processing",
   };
 }

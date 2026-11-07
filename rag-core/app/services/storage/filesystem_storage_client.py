@@ -27,3 +27,11 @@ class FilesystemStorageClient:
         if not path.exists():
             return None
         return json.loads(path.read_text(encoding="utf-8"))
+
+    async def read_bytes(self, key: str) -> bytes:
+        return (self._base_dir / key).read_bytes()
+
+    async def delete(self, key: str) -> None:
+        path = self._base_dir / key
+        if path.exists():
+            path.unlink()

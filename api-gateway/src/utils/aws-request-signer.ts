@@ -44,3 +44,24 @@ export function signRequest(request: SignableRequest): SignableRequest {
     body: request.body,
   };
 }
+
+/** Sign a private S3 REST request with the Lambda execution role. */
+export function signS3Request(request: SignableRequest): SignableRequest {
+  const signed = aws4.sign({
+    host: request.host,
+    path: request.path,
+    method: request.method,
+    headers: request.headers,
+    body: request.body,
+    service: "s3",
+    region: env.AWS_REGION,
+  });
+
+  return {
+    host: request.host,
+    path: signed.path ?? request.path,
+    method: request.method,
+    headers: signed.headers as Record<string, string>,
+    body: request.body,
+  };
+}

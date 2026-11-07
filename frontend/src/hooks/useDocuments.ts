@@ -66,6 +66,7 @@ export function useDocuments(): UseDocumentsResult {
                     ...doc,
                     status: status.status,
                     chunks: status.chunks,
+                    suggestions: status.suggestions,
                   }
                 : doc
             )
@@ -109,6 +110,7 @@ export function useDocuments(): UseDocumentsResult {
             chunks: result.chunks,
             status: result.status,
             ingestedAt: new Date().toISOString(),
+            suggestions: result.suggestions,
           },
           ...previous,
         ]);

@@ -64,3 +64,16 @@ class S3StorageClient:
 
     async def get_json(self, key: str) -> dict | None:
         return await asyncio.to_thread(self._get_json_sync, key)
+
+    def _read_bytes_sync(self, key: str) -> bytes:
+        response = self._client.get_object(Bucket=self._bucket, Key=key)
+        return response["Body"].read()
+
+    async def read_bytes(self, key: str) -> bytes:
+        return await asyncio.to_thread(self._read_bytes_sync, key)
+
+    def _delete_sync(self, key: str) -> None:
+        self._client.delete_object(Bucket=self._bucket, Key=key)
+
+    async def delete(self, key: str) -> None:
+        await asyncio.to_thread(self._delete_sync, key)

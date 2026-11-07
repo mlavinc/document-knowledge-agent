@@ -25,6 +25,70 @@ module "api_gateway_ecr" {
   repository_name = local.api_gateway_ecr_name
 }
 
+# GitHub Actions builds the Lambda container images on hosted runners. This
+# avoids requiring Docker Desktop on a developer machine and uses short-lived
+# OIDC credentials scoped to this repository's main branch.
+data "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
+data "aws_iam_policy_document" "github_actions_assume_role" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [data.aws_iam_openid_connect_provider.github_actions.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:mlavinc/arxiv-rag-agent:ref:refs/heads/main"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_image_builder" {
+  name               = "rag-agent-github-image-builder"
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+}
+
+data "aws_iam_policy_document" "github_image_builder" {
+  statement {
+    sid       = "EcrLogin"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "PushRagAgentImages"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:CompleteLayerUpload",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [
+      module.rag_core_ecr.arn,
+      module.api_gateway_ecr.arn,
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "github_image_builder" {
+  name   = "rag-agent-ecr-push"
+  role   = aws_iam_role.github_image_builder.id
+  policy = data.aws_iam_policy_document.github_image_builder.json
+}
+
 # ---------------------------------------------------------------------------
 # S3: frontend estático + almacenamiento de PDFs
 # ---------------------------------------------------------------------------
@@ -61,8 +125,8 @@ module "aurora" {
 resource "aws_ssm_parameter" "openai_api_key" {
   name        = var.openai_api_key_ssm_parameter_name
   description = "OpenAI API key for rag-core (LLM + embeddings). Set value with aws ssm put-parameter --overwrite."
-  type  = "SecureString"
-  value = "REPLACE_ME_VIA_AWS_CLI"
+  type        = "SecureString"
+  value       = "REPLACE_ME_VIA_AWS_CLI"
 
   lifecycle {
     ignore_changes = [value]
@@ -122,27 +186,27 @@ module "rag_core_lambda" {
   additional_policy_json = data.aws_iam_policy_document.rag_core_permissions.json
 
   environment_variables = {
-    LLM_PROVIDER                   = "openai"
-    EMBEDDING_PROVIDER             = "openai"
-    VECTOR_DB_PROVIDER             = "pgvector"
-    STORAGE_PROVIDER               = "s3"
-    LLM_MODEL                      = var.openai_llm_model
-    EMBEDDING_MODEL                = var.openai_embedding_model
-    EMBEDDING_DIMENSIONS           = tostring(var.openai_embedding_dimensions)
+    LLM_PROVIDER         = "openai"
+    EMBEDDING_PROVIDER   = "openai"
+    VECTOR_DB_PROVIDER   = "pgvector"
+    STORAGE_PROVIDER     = "s3"
+    LLM_MODEL            = var.openai_llm_model
+    EMBEDDING_MODEL      = var.openai_embedding_model
+    EMBEDDING_DIMENSIONS = tostring(var.openai_embedding_dimensions)
     # Parameter *name* only — secret value is loaded at runtime from SSM.
-    OPENAI_API_KEY_SSM_PARAMETER   = aws_ssm_parameter.openai_api_key.name
+    OPENAI_API_KEY_SSM_PARAMETER = aws_ssm_parameter.openai_api_key.name
     # AWS_REGION no se define aquí: es una variable reservada que Lambda
     # inyecta automáticamente en el entorno de ejecución.
-    AURORA_CLUSTER_ARN             = module.aurora.cluster_arn
-    AURORA_SECRET_ARN              = module.aurora.secret_arn
-    AURORA_DATABASE_NAME           = module.aurora.database_name
-    AURORA_TABLE_NAME              = local.aurora_table_name
-    AURORA_PORTFOLIO_TABLE_NAME    = local.aurora_portfolio_table_name
-    S3_DOCUMENTS_BUCKET            = module.documents_bucket.id
+    AURORA_CLUSTER_ARN          = module.aurora.cluster_arn
+    AURORA_SECRET_ARN           = module.aurora.secret_arn
+    AURORA_DATABASE_NAME        = module.aurora.database_name
+    AURORA_TABLE_NAME           = local.aurora_table_name
+    AURORA_PORTFOLIO_TABLE_NAME = local.aurora_portfolio_table_name
+    S3_DOCUMENTS_BUCKET         = module.documents_bucket.id
     # RAG Core can take more than Lambda's 10s init window. Let the Web
     # Adapter continue readiness checks in the first invocation instead
     # of restarting the container and returning an early 502.
-    AWS_LWA_ASYNC_INIT             = "true"
+    AWS_LWA_ASYNC_INIT = "true"
   }
 }
 
@@ -214,6 +278,12 @@ data "aws_iam_policy_document" "api_gateway_permissions" {
     actions   = ["lambda:InvokeFunctionUrl", "lambda:InvokeFunction"]
     resources = [module.rag_core_lambda.function_arn]
   }
+
+  statement {
+    sid       = "StageDocumentsInS3"
+    actions   = ["s3:PutObject", "s3:DeleteObject"]
+    resources = ["${module.documents_bucket.arn}/staging/*"]
+  }
 }
 
 module "api_gateway_lambda" {
@@ -240,6 +310,7 @@ module "api_gateway_lambda" {
     # encima del límite ~29s de API Gateway HTTP API.
     INGESTION_MODE         = "async"
     RAG_CORE_FUNCTION_NAME = module.rag_core_lambda.function_name
+    S3_DOCUMENTS_BUCKET    = module.documents_bucket.id
   }
 }
 

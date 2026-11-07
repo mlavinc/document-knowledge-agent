@@ -1,6 +1,50 @@
+import logging
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+class StagedDocumentRequest(BaseModel):
+    document_id: str = Field(min_length=1, max_length=255)
+    object_key: str = Field(pattern=r"^staging/")
+
+
+async def _ingest_content(document_id: str, content: bytes):
+    from app.services.ingestion.ingestion_service import ingestion_service
+    from app.services.storage.storage_service import storage_service
+
+    await storage_service.write_ingest_status(document_id, "processing")
+
+    try:
+        file_path = await storage_service.save(document_id, content)
+        result = await ingestion_service.ingest_pdf(
+            file_path,
+            {
+                "document_id": document_id,
+                "title": document_id,
+                "source": "upload",
+            },
+        )
+        await storage_service.write_ingest_status(
+            document_id,
+            "completed",
+            chunks=result.get("chunks"),
+            suggestions=result.get("suggestions"),
+        )
+        return {"filename": document_id, **result}
+    except Exception as exc:
+        await storage_service.write_ingest_status(
+            document_id,
+            "failed",
+            error=str(exc),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ingestion failed: {exc}",
+        ) from exc
 
 
 @router.get(
@@ -53,40 +97,35 @@ async def get_ingest_status(document_id: str):
     summary="Upload and ingest PDF document",
 )
 async def ingest_document(file: UploadFile = File(...)):
-    from app.services.ingestion.ingestion_service import ingestion_service
-    from app.services.storage.storage_service import storage_service
-
     document_id = file.filename or "upload.pdf"
     content = await file.read()
+    return await _ingest_content(document_id, content)
 
-    await storage_service.write_ingest_status(document_id, "processing")
+
+@router.post(
+    "/documents/ingest-staged",
+    summary="Ingest a PDF previously staged in private storage",
+)
+async def ingest_staged_document(request: StagedDocumentRequest):
+    from app.services.storage.storage_service import storage_service
 
     try:
-        file_path = await storage_service.save(document_id, content)
-        result = await ingestion_service.ingest_pdf(
-            file_path,
-            {
-                "document_id": document_id,
-                "title": document_id,
-                "source": "upload",
-            },
-        )
-        await storage_service.write_ingest_status(
-            document_id,
-            "completed",
-            chunks=result.get("chunks"),
-        )
-        return {
-            "filename": document_id,
-            **result,
-        }
+        content = await storage_service.read_staged(request.object_key)
+        return await _ingest_content(request.document_id, content)
+    except HTTPException:
+        raise
     except Exception as exc:
         await storage_service.write_ingest_status(
-            document_id,
+            request.document_id,
             "failed",
             error=str(exc),
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Ingestion failed: {exc}",
+            detail=f"Could not read staged document: {exc}",
         ) from exc
+    finally:
+        try:
+            await storage_service.delete_staged(request.object_key)
+        except Exception:
+            logger.exception("Could not delete staged object %s", request.object_key)

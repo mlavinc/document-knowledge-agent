@@ -3,10 +3,10 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { AgentStatus, ChatMessage } from "../types/rag.types";
 import { MessageBubble } from "./MessageBubble";
 
-const EXAMPLE_QUESTIONS = [
-  "What is PyramidTNT?",
-  "Summarize this paper",
-  "What are the main contributions?",
+const FALLBACK_QUESTIONS = [
+  "What is this document mainly about?",
+  "What are its key ideas?",
+  "What conclusions does it present?",
 ];
 
 interface ChatWindowProps {
@@ -15,6 +15,8 @@ interface ChatWindowProps {
   agentStatus: AgentStatus;
   error: string | null;
   onAsk: (question: string) => void;
+  suggestions: string[];
+  hasReadyDocument: boolean;
 }
 
 export function ChatWindow({
@@ -23,9 +25,14 @@ export function ChatWindow({
   agentStatus,
   error,
   onAsk,
+  suggestions,
+  hasReadyDocument,
 }: ChatWindowProps) {
   const [input, setInput] = useState("");
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
+  const exampleQuestions = suggestions.length > 0
+    ? suggestions.slice(0, 3)
+    : FALLBACK_QUESTIONS;
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,19 +78,28 @@ export function ChatWindow({
       <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
         {messages.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-ink/40">
-            <p className="text-sm">Try one of these to get started:</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {EXAMPLE_QUESTIONS.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => onAsk(example)}
-                  className="rounded-full border border-sage-200 bg-sage-50 px-3 py-1.5 text-xs text-sage-700 transition hover:bg-sage-100"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
+            {hasReadyDocument ? (
+              <>
+                <p className="text-sm">Questions suggested from your document:</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {exampleQuestions.map((example) => (
+                    <button
+                      key={example}
+                      type="button"
+                      onClick={() => onAsk(example)}
+                      className="rounded-full border border-sage-200 bg-sage-50 px-3 py-1.5 text-xs text-sage-700 transition hover:bg-sage-100"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="max-w-sm text-sm">
+                Upload a PDF first. Once it is ready, suggested questions will
+                be generated from its actual content.
+              </p>
+            )}
           </div>
         )}
 

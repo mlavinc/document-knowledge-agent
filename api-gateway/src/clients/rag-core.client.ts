@@ -3,7 +3,10 @@ import axios from "axios";
 import FormData from "form-data";
 
 import { env } from "../config/env";
-import { DocumentIngestResponseBody } from "../types/documents.types";
+import {
+  DocumentIngestResponseBody,
+  StagedDocumentBody,
+} from "../types/documents.types";
 import { SearchResponseBody } from "../types/search.types";
 import { signRequest } from "../utils/aws-request-signer";
 import {
@@ -141,26 +144,18 @@ async function ingestDocument(
  * long the underlying ingestion pipeline takes (up to rag-core's own
  * Lambda timeout, run in a separate execution environment).
  *
- * rag-core's FastAPI endpoint and its Lambda Web Adapter setup are
- * unchanged: the adapter only knows how to translate API Gateway/ALB/
- * Function URL-shaped events into HTTP requests, so the payload here is
- * built to look exactly like a real Function URL invocation event.
+ * The PDF is staged in private S3 first, so this event only carries a small
+ * object reference and remains safely below Lambda Event's 1 MB limit. The
+ * payload still looks like a Function URL event for the Lambda Web Adapter.
  */
-async function ingestDocumentAsync(
-  file: Express.Multer.File,
+async function ingestStagedDocumentAsync(
+  staged: StagedDocumentBody,
   collection: string = COLLECTION_DEFAULT
 ): Promise<void> {
-  const path = "/api/v1/documents/ingest";
-
-  const formData = new FormData();
-  formData.append("file", file.buffer, {
-    filename: file.originalname,
-    contentType: file.mimetype,
-  });
-
-  const body = formData.getBuffer();
+  const path = "/api/v1/documents/ingest-staged";
+  const body = Buffer.from(JSON.stringify(staged));
   const headers = {
-    ...formData.getHeaders(),
+    "content-type": "application/json",
     [COLLECTION_HEADER]: collection,
   };
 
@@ -205,6 +200,6 @@ export const ragCoreClient = {
   startWarmup,
   getWarmupStatus,
   ingestDocument,
-  ingestDocumentAsync,
+  ingestStagedDocumentAsync,
   getIngestStatus,
 };

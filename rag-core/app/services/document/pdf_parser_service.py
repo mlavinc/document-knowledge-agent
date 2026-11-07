@@ -10,6 +10,7 @@ class PDFParserService:
     def extract_text(self, file_path: str) -> dict:
 
         document = fitz.open(file_path)
+        metadata = dict(document.metadata or {})
 
         pages = []
 
@@ -29,6 +30,7 @@ class PDFParserService:
         return {
             "pages": pages,
             "page_count": len(pages),
+            "metadata": metadata,
         }
 
 

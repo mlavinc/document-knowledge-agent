@@ -1,9 +1,15 @@
 export interface DocumentIngestResponseBody {
   filename: string;
   chunks?: number;
+  suggestions?: string[];
   status: string;
   document_id?: string;
   error?: string;
+}
+
+export interface StagedDocumentBody {
+  document_id: string;
+  object_key: string;
 }
 
 /**

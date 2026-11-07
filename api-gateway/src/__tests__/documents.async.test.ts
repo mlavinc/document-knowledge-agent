@@ -2,8 +2,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import type { Express } from "express";
 
-const { mockSend } = vi.hoisted(() => ({
+const { mockRemove, mockSend, mockStage } = vi.hoisted(() => ({
+  mockRemove: vi.fn(),
   mockSend: vi.fn(),
+  mockStage: vi.fn(),
 }));
 
 vi.mock("@aws-sdk/client-lambda", () => ({
@@ -15,6 +17,13 @@ vi.mock("@aws-sdk/client-lambda", () => ({
     constructor(input: unknown) {
       this.input = input;
     }
+  },
+}));
+
+vi.mock("../services/staged-documents.service", () => ({
+  stagedDocumentsService: {
+    stage: mockStage,
+    remove: mockRemove,
   },
 }));
 
@@ -33,6 +42,13 @@ describe("POST /api/documents/ingest (INGESTION_MODE=async)", () => {
 
   beforeEach(() => {
     mockSend.mockReset();
+    mockStage.mockReset();
+    mockRemove.mockReset();
+    mockStage.mockResolvedValue({
+      documentId: "paper.pdf",
+      objectKey: "staging/default/upload-paper.pdf",
+    });
+    mockRemove.mockResolvedValue(undefined);
   });
 
   it("invokes rag-core asynchronously and responds 202 immediately", async () => {
@@ -46,6 +62,18 @@ describe("POST /api/documents/ingest (INGESTION_MODE=async)", () => {
       });
 
     expect(mockSend).toHaveBeenCalledTimes(1);
+    const invocation = mockSend.mock.calls[0]?.[0] as {
+      input: { Payload: Uint8Array };
+    };
+    const event = JSON.parse(Buffer.from(invocation.input.Payload).toString());
+    const stagedBody = JSON.parse(
+      Buffer.from(event.body, "base64").toString("utf8")
+    );
+    expect(event.rawPath).toBe("/api/v1/documents/ingest-staged");
+    expect(stagedBody).toEqual({
+      document_id: "paper.pdf",
+      object_key: "staging/default/upload-paper.pdf",
+    });
     expect(response.status).toBe(202);
     expect(response.body).toEqual({
       document_id: "paper.pdf",
@@ -66,5 +94,8 @@ describe("POST /api/documents/ingest (INGESTION_MODE=async)", () => {
 
     expect(response.status).toBe(503);
     expect(response.body).toEqual({ error: "RAG Core unavailable" });
+    expect(mockRemove).toHaveBeenCalledWith(
+      "staging/default/upload-paper.pdf"
+    );
   });
 });

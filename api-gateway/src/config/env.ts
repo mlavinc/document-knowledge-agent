@@ -26,4 +26,7 @@ export const env = {
   // Nombre (no ARN) de la función Lambda de rag-core, requerido para
   // invocarla directamente vía el SDK de Lambda en modo "async".
   RAG_CORE_FUNCTION_NAME: process.env.RAG_CORE_FUNCTION_NAME || "",
+  // Shared private bucket used to stage uploads before invoking rag-core.
+  // Passing the PDF itself to Lambda Event is limited to a 1 MB payload.
+  S3_DOCUMENTS_BUCKET: process.env.S3_DOCUMENTS_BUCKET || "",
 };

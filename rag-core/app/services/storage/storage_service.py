@@ -61,6 +61,7 @@ class StorageService:
         *,
         chunks: int | None = None,
         error: str | None = None,
+        suggestions: list[str] | None = None,
     ) -> None:
         payload: dict = {
             "document_id": document_id,
@@ -71,6 +72,8 @@ class StorageService:
             payload["chunks"] = chunks
         if error is not None:
             payload["error"] = error
+        if suggestions:
+            payload["suggestions"] = suggestions
         await self._get_client().put_json(
             _ingest_status_key(document_id), payload
         )
@@ -79,6 +82,16 @@ class StorageService:
         return await self._get_client().get_json(
             _ingest_status_key(document_id)
         )
+
+    async def read_staged(self, object_key: str) -> bytes:
+        if not object_key.startswith("staging/"):
+            raise ValueError("Invalid staged document key")
+        return await self._get_client().read_bytes(object_key)
+
+    async def delete_staged(self, object_key: str) -> None:
+        if not object_key.startswith("staging/"):
+            raise ValueError("Invalid staged document key")
+        await self._get_client().delete(object_key)
 
 
 storage_service = StorageService()

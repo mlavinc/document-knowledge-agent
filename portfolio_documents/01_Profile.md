@@ -74,7 +74,8 @@ Also familiar with Node.js/Express for API gateway patterns.
 
 ## Certifications and learning
 
-- AWS Cloud Practitioner Essentials; pursuing further AWS certifications (AI Practitioner path and Associate-level goals).
+- **AWS Certified Solutions Architect – Associate (SAA)**.
+- AWS Cloud Practitioner Essentials and continued AWS architecture learning.
 - Google Cloud Academy: Feature Engineering; Build, Train and Deploy ML Models with Keras.
 - Cisco Networking Academy: Networking Fundamentals; Cybersecurity & Ethical Hacking.
 - HackerRank Go Programming Certification.

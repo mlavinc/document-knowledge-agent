@@ -32,5 +32,4 @@ class LLMService:
         prompt = prompt_builder.build(question, context)
         return await self._get_client().generate(prompt)
 
-
 llm_service = LLMService()

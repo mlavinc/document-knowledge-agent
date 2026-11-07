@@ -4,6 +4,7 @@ from app.services.document.pdf_parser_service import pdf_parser_service
 from app.services.chunking_service import chunking_service
 from app.services.embeddings.embeddings_service import embeddings_service
 from app.services.vector_db.vector_db_service import vector_db_service
+from app.services.question_suggestion_service import question_suggestion_service
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,16 @@ class IngestionService:
             file_path
         )
 
+        document_id = metadata.get(
+            "document_id",
+            "unknown",
+        )
+        suggestions = question_suggestion_service.generate(
+            document_id,
+            parsed["pages"],
+            parsed.get("metadata", {}),
+        )
+
         # 2. Split document into chunks
         chunks = chunking_service.split(
             parsed["pages"]
@@ -47,11 +58,6 @@ class IngestionService:
             await embeddings_service.embed(chunk["text"], purpose="ingestion")
             for chunk in chunks
         ]
-
-        document_id = metadata.get(
-            "document_id",
-            "unknown",
-        )
 
         # 4. Prepare Chroma documents
         ids = [
@@ -79,6 +85,7 @@ class IngestionService:
         return {
             "chunks": len(chunks),
             "status": "completed",
+            "suggestions": suggestions,
         }
 
 

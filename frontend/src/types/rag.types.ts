@@ -22,6 +22,7 @@ export interface DocumentIngestResponseBody {
   status: string;
   document_id?: string;
   error?: string;
+  suggestions?: string[];
 }
 
 export type MessageRole = "user" | "assistant";
@@ -39,4 +40,5 @@ export interface IngestedDocument {
   chunks?: number;
   status: string;
   ingestedAt: string;
+  suggestions?: string[];
 }
