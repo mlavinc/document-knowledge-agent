@@ -13,11 +13,12 @@ All of these names refer to the same person:
 
 Location: **Santiago, Chile**.
 Languages: Spanish (native), English (C1, Cambridge).
+Certification: **AWS Certified Solutions Architect – Associate (SAA)**.
 
 ## Short identity answers
 
 **Who is Martin Lavin / Martín Lavín / this person?**
-Martín Lavín Carvajal (Martin Lavin) is a final-year Computer Engineering student at Universidad Mayor in Santiago, Chile. He focuses on Cloud Engineering, Platform Engineering, Backend Development, AI-powered systems, and full-stack development. His long-term goal is to become a **Solutions Architect**.
+Martín Lavín Carvajal (Martin Lavin) is a final-year Computer Engineering student at Universidad Mayor in Santiago, Chile and an **AWS Certified Solutions Architect – Associate (SAA)**. He focuses on Cloud Engineering, Platform Engineering, Backend Development, AI-powered systems, and full-stack development. His long-term goal is to become a **Solutions Architect**.
 
 **Tell me about Martin / Tell me about yourself / Tell me about your background.**
 He combines a strong academic foundation in computer engineering with industry internship experience at Nestlé Digital & New Tech, teaching assistant work, SIMCE examiner experience, AWS-oriented personal projects, and research in medical imaging / machine learning.

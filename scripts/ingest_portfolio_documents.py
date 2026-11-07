@@ -28,6 +28,7 @@ import json
 import os
 import sys
 import time
+import textwrap
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -87,20 +88,40 @@ def text_to_pdf(src: Path, dest: Path) -> None:
             .decode("ascii")
         )
 
+    wrapped_lines: list[str] = []
+    for source_line in text.expandtabs(4).splitlines():
+        wrapped_lines.extend(
+            textwrap.wrap(
+                source_line,
+                width=92,
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+            or [""]
+        )
+
     doc = fitz.open()
-    text_chunks = [
-        text[i : i + 3500] for i in range(0, max(len(text), 1), 3500)
-    ] or [text]
-    for chunk in text_chunks:
+    lines_per_page = 60
+    for start in range(0, max(len(wrapped_lines), 1), lines_per_page):
+        page_lines = wrapped_lines[start : start + lines_per_page]
         page = doc.new_page(width=595, height=842)
-        rect = fitz.Rect(48, 48, 547, 794)
         if font is not None:
             writer = fitz.TextWriter(page.rect)
-            writer.fill_textbox(rect, chunk, font=font, fontsize=10, align=0)
+            for index, line in enumerate(page_lines):
+                writer.append(
+                    (48, 58 + index * 12),
+                    line,
+                    font=font,
+                    fontsize=10,
+                )
             writer.write_text(page)
         else:
-            page.insert_textbox(
-                rect, chunk, fontsize=10, fontname="helv", align=0
+            page.insert_text(
+                (48, 58),
+                "\n".join(page_lines),
+                fontsize=10,
+                fontname="helv",
+                lineheight=1.2,
             )
 
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -110,9 +131,13 @@ def text_to_pdf(src: Path, dest: Path) -> None:
     check = fitz.open(dest)
     extracted = "".join(page.get_text() for page in check).strip()
     check.close()
-    if not extracted:
+    normalized_source = " ".join(text.split())
+    normalized_extracted = " ".join(extracted.split())
+    if not extracted or normalized_source[-200:] not in normalized_extracted:
         dest.unlink(missing_ok=True)
-        raise RuntimeError(f"Converted PDF has no extractable text: {src.name}")
+        raise RuntimeError(
+            f"Converted PDF is missing source text near the end: {src.name}"
+        )
 
 
 def multipart_body(filename: str, content: bytes) -> tuple[bytes, dict[str, str]]:
