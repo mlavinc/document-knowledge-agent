@@ -7,6 +7,7 @@ on:
     paths:
       - "api-gateway/**"
       - "rag-core/**"
+      - "infra/environments/prod/**"
       - ".github/workflows/deploy-aws-images.yml"
 
 permissions:
