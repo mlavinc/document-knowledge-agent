@@ -50,7 +50,10 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:mlavinc/document-knowledge-agent:ref:refs/heads/main"]
+      values = [
+        "repo:mlavinc/document-knowledge-agent:ref:refs/heads/main",
+        "repo:mlavinc/arxiv-rag-agent:ref:refs/heads/main",
+      ]
     }
   }
 }
