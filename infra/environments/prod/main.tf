@@ -73,6 +73,7 @@ data "aws_iam_policy_document" "github_image_builder" {
     sid = "PushRagAgentImages"
     actions = [
       "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
       "ecr:CompleteLayerUpload",
       "ecr:InitiateLayerUpload",
       "ecr:PutImage",
