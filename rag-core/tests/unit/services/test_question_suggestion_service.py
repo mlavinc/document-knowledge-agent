@@ -7,14 +7,22 @@ from app.services.question_suggestion_service import (
 def test_suggestions_use_pdf_title_and_headings():
     result = question_suggestion_service.generate(
         "sample.pdf",
-        [{"text": "1 Introduction\n2 Physical health benefits\nBody text"}],
+        [
+            {
+                "text": (
+                    "EDITED BY\nAndrea Fusco,\nUniversity of Example\n"
+                    "1 Introduction\nBody text"
+                )
+            },
+            {"text": "2 Methods\n4 Physical health benefits\nBody text"},
+        ],
         {"title": "Benefits of Outdoor Hiking"},
     )
 
     assert result == [
         "What are the main findings of Benefits of Outdoor Hiking?",
         "How does the document explain Introduction?",
-        "What does the document conclude about Physical health benefits?",
+        "What does the document conclude about Methods?",
     ]
 
 

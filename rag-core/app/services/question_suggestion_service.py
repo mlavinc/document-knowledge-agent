@@ -30,7 +30,7 @@ def _shorten(value: str, limit: int = 88) -> str:
 def _document_subject(document_id: str, metadata: dict | None = None) -> str:
     title = _clean(str((metadata or {}).get("title", "")))
     if title:
-        return _shorten(title)
+        return _shorten(title, 110)
 
     filename = _clean(re.sub(r"[_-]+", " ", Path(document_id).stem))
     if filename and filename.lower() not in GENERIC_NAMES:
@@ -42,9 +42,11 @@ def _heading_candidates(pages: list[dict], subject: str) -> list[str]:
     candidates: list[str] = []
     seen: set[str] = set()
     subject_lower = subject.lower()
+    body_started = False
 
     for page in pages[:8]:
-        for raw_line in str(page.get("text", "")).splitlines():
+        lines = str(page.get("text", "")).splitlines()
+        for index, raw_line in enumerate(lines):
             line = _clean(raw_line)
             if not 8 <= len(line) <= 100:
                 continue
@@ -60,7 +62,17 @@ def _heading_candidates(pages: list[dict], subject: str) -> list[str]:
             )
             if numbered:
                 line = _clean(numbered.group(1))
-            elif not (
+                body_started = True
+                if index + 1 < len(lines):
+                    continuation = _clean(lines[index + 1])
+                    if (
+                        continuation
+                        and len(continuation) <= 40
+                        and continuation[0].islower()
+                        and not continuation.endswith((".", "?", "!"))
+                    ):
+                        line = f"{line} {continuation}"
+            elif not body_started or not (
                 line.isupper()
                 or line.istitle()
                 or lower
